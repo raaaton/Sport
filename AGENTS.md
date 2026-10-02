@@ -1,41 +1,181 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# AGENTS.md
 
-## Expo has changed — do not trust your training data
+## Project
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+Sport is a personal, offline-first iOS workout tracker built with React Native, Expo and TypeScript.
 
-1. Read the major version of the `expo` package in `package.json`.
-2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
+The primary target is iOS. Android compatibility is not a priority unless it comes for free without compromising the iOS experience.
 
-## Commands
+## Core principles
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+1. Prefer native iOS behavior and appearance over generic React Native UI.
+2. Keep the application local-first and offline-first.
+3. Do not add a backend, authentication account, analytics, ads, or remote database unless explicitly requested.
+4. Prefer Expo APIs and existing platform capabilities before writing custom native code.
+5. Keep native iOS code isolated and minimal.
+6. Do not replace an existing architecture with a new library unless there is a concrete reason.
+7. Do not introduce dependencies for trivial problems.
+8. Do not create fake Liquid Glass effects when a native API is available.
+9. Preserve the user's existing workout model and terminology.
+10. Optimize for maintainability by an owner who knows TypeScript/React but is not a Swift expert.
 
-```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
-```
+## iOS
 
-Run lint and typecheck before declaring any task done.
+The application should feel like a modern native iOS application.
 
-## Navigation & Routing
+Prefer:
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+* SF Symbols
+* native navigation
+* native sheets
+* native gestures
+* Dynamic Type
+* system typography
+* native haptics
+* Liquid Glass on supported iOS versions
+* platform conventions
 
-## Building with EAS
+Avoid:
 
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
+* web-like cards
+* excessive rounded rectangles
+* arbitrary gradients
+* fake glassmorphism
+* unnecessary shadows
+* custom controls that duplicate native iOS controls
 
-## Rules
+## React / TypeScript
 
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+Use strict TypeScript.
+
+Prefer small components and feature-based organization.
+
+Avoid:
+
+* `any`
+* giant components
+* deeply nested prop drilling
+* duplicated business logic
+* unnecessary global state
+
+Keep business logic out of screen components when practical.
+
+## Data
+
+SQLite is the source of truth for workout data.
+
+Do not use Numbers, Apple Notes, or Apple Reminders as the internal database.
+
+External Apple integrations must never be required for the application to function.
+
+All database schema changes must have a migration.
+
+## Workout logic
+
+Workout state must be explicit and predictable.
+
+Do not implement the workout flow as a collection of unrelated booleans.
+
+The workout flow should distinguish:
+
+* idle
+* active workout
+* active set
+* completed set
+* resting
+* completed exercise
+* completed workout
+* cancelled workout
+
+## Timer
+
+The rest timer is a real application feature, not a wrapper around the system Timer app.
+
+The timer must support:
+
+* start
+* pause
+* resume
+* skip
+* cancel
+* completion feedback
+
+The timer must remain correct when the app changes state or moves into the background.
+
+## Progress photos
+
+Progress photos are highly private.
+
+Never store the main photo files unencrypted.
+
+Use:
+
+* AES-GCM encryption for vault files
+* a randomly generated encryption key
+* Keychain/SecureStore for the key
+* biometric authentication for key access
+* secure clearing of decrypted photo state when locking the vault
+
+Do not log:
+
+* encryption keys
+* photo paths
+* decrypted image data
+* biometric results
+
+Never put private progress photos in logs, crash messages, analytics, notifications, or screenshots generated by the application.
+
+## Security
+
+Do not implement cryptography manually.
+
+Use established platform or Expo cryptographic primitives.
+
+Security-sensitive changes require:
+
+1. implementation
+2. code review
+3. a clear test plan
+4. explicit manual testing on a physical iPhone
+
+## Testing
+
+Before considering a feature complete:
+
+* run TypeScript checks
+* run lint
+* run tests
+* manually test the feature on the iPhone when UI or platform behavior is involved
+
+Do not claim a feature is tested if only static analysis was performed.
+
+## Agent behavior
+
+Before implementing a large feature:
+
+1. inspect the relevant code
+2. read the relevant documentation
+3. identify existing patterns
+4. make the smallest coherent implementation
+5. test it
+6. report what changed and what remains unverified
+
+For significant features or refactors, use an ExecPlan described in `.agent/PLANS.md`.
+
+Do not perform unrelated refactors while implementing a feature.
+
+Do not silently change product requirements.
+
+When a requirement is ambiguous, choose the simplest behavior consistent with the existing product specification and document the assumption.
+
+## Documentation
+
+Keep:
+
+* `docs/PROJECT.md` as the product specification
+* `docs/DESIGN.md` as the visual and interaction specification
+* `docs/SECURITY.md` as the security specification
+* `docs/ROADMAP.md` as the implementation roadmap
+* `.agent/PLANS.md` as the format for execution plans
+
+Update documentation when the implementation changes a documented behavior.
