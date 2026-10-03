@@ -1,15 +1,10 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { AppState, StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import 'react-native-reanimated';
-import { useEffect, useState } from 'react';
 
 import { useColorScheme } from '@/shared/theme/useColorScheme';
-import { colors } from '@/shared/theme/tokens';
-import { AppSymbol } from '@/shared/ui/AppSymbol';
-import { AppText } from '@/shared/ui/AppText';
 import { NotificationRuntime } from '@/features/notifications/components/NotificationRuntime';
-import { setNativePrivacyShield } from '@/features/progress/services/privacyShield';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -23,17 +18,6 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [isActive, setIsActive] = useState(AppState.currentState === 'active');
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => setIsActive(state === 'active'));
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    // Hide the native app-switcher cover only after React has rendered its locked foreground state.
-    setNativePrivacyShield(!isActive);
-  }, [isActive]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -45,22 +29,10 @@ export default function RootLayout() {
           <Stack.Screen name="workout-history" options={{ headerShown: false }} />
         </Stack>
         <NotificationRuntime />
-        {!isActive ? (
-          <View
-            pointerEvents="auto"
-            style={[StyleSheet.absoluteFill, styles.privacyCurtain, { backgroundColor: colors[colorScheme].groupedBackground }]}
-          >
-            <AppSymbol name="lock.fill" size={24} color={colors[colorScheme].tertiary} />
-            <AppText variant="headline">Sport</AppText>
-          </View>
-        ) : null}
         <StatusBar style="auto" />
       </View>
     </ThemeProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  privacyCurtain: { alignItems: 'center', justifyContent: 'center', gap: 8, zIndex: 1000 },
-});
+const styles = { root: { flex: 1 } };

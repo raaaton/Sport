@@ -1,5 +1,7 @@
 # ExecPlan: Face ID lifecycle and private app-switcher cover
 
+> Follow-up: the user later asked to remove the focus cover entirely. Its implementation and documented tradeoff are tracked in [2026-10-04-remove-app-focus-cover.md](2026-10-04-remove-app-focus-cover.md); this plan records the earlier Face ID repair.
+
 ## Objective
 
 Fix the Progress vault's Face ID unlock flow when iOS reports a temporary inactive state for the system authentication sheet. Replace the completely black app-switcher snapshot with a neutral, branded opaque privacy cover. Keep photos hidden whenever the app actually leaves the foreground and preserve fail-closed vault behavior.
@@ -42,5 +44,5 @@ Fix the Progress vault's Face ID unlock flow when iOS reports a temporary inacti
 - [x] First fix committed and pushed (`d22cf0e`); the macOS build compiled it, but the user confirmed it did not resolve unlock. Root cause was an additional foreground-state guard that discarded a key returned before the active event.
 - [x] Wait for foreground after successful biometric read, remove the requested subtitle, add tests, and update security/design documentation.
 - [x] Run TypeScript, ESLint, all 7 test suites, Expo install check, iOS export, and `git diff --check`; all pass. Expo dependency validation used the local bundled map because network access is disabled.
-- [ ] Commit and push the focused follow-up so the macOS workflow compiles and publishes it.
+- [x] Commit and push the focused follow-up (`e2d07b1`); the macOS workflow compiled and published its release.
 - [ ] User validates Face ID and app-switcher rendering on iPhone.
