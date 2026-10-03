@@ -98,7 +98,8 @@ The timer must support:
 * pause
 * resume
 * skip
-* cancel
+
+`Passer le repos` ends the current rest and immediately presents the next set. Cancelling the whole workout is a separate confirmed action and does not remove already recorded sets.
 
 When the timer ends:
 
