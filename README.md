@@ -12,7 +12,7 @@ Sport est une application personnelle de suivi d'entraînement, conçue d'abord 
 | Système de lest | Implémenté; validation iPhone à faire |
 | Notifications locales et planning éditable | Implémentés; validation iPhone à faire |
 | Coffre de photos de progression | Implémenté; development build et validation iPhone obligatoires |
-| Live Activity / Dynamic Island (étape 9) | Implémentée avec Expo Widgets; IPA native et validation iPhone obligatoires |
+| Live Activity / Dynamic Island (étape 9) | Présentation SwiftUI native via l'extension Expo Widgets; nouvelle validation iPhone obligatoire après le bug de rendu |
 
 Les fonctions livrées comprennent Aujourd'hui, le démarrage et la reprise d'une séance, la saisie des séries, le timer de repos et sa Live Activity, l'historique avec ajout/modification/suppression, la progression basée sur les performances, le calcul des charges réalisables à partir du matériel, les notifications locales, et un coffre privé pour les photos de progression.
 
@@ -20,7 +20,7 @@ Le système de lest utilise un sac fixe de 3,0 kg et des objets dont les poids s
 
 Les rappels locaux de séance sont opt-in et utilisent les jours actifs du planning. Chaque séance dispose de sa propre heure de rappel, à la minute, configurée dans Réglages > Planning; une heure absente ne programme aucun rappel. La page Planning permet aussi de déplacer, renommer, activer/désactiver et composer chaque séance avec les exercices disponibles, dans un ordre choisi. Les rappels de progression photo sont mensuels, à 06:00 par défaut, et ne contiennent aucune information privée. Les requêtes de séance sont programmées concrètement sur 28 jours et ignorent une date où une séance a déjà commencé.
 
-Le sélecteur d'heure utilise le composant natif SwiftUI `DatePicker` via `@expo/ui`, compatible avec Expo Go en SDK 57. Le repos expose une Live Activity via `expo-widgets`: countdown système basé sur l'échéance persistée, exercice et prochaine série, pause statique, reprise, réconciliation au lancement et lien vers la bonne séance. Expo Go ne contient pas cette extension; il faut installer l'IPA GitHub avec SideStore pour la valider. Expo ne peut pas terminer l'activité à l'échéance si le processus reste suspendu; l'app la termine au retour au premier plan. Shortcuts n'est pas encore implémenté.
+Le sélecteur d'heure utilise le composant natif SwiftUI `DatePicker` via `@expo/ui`, compatible avec Expo Go en SDK 57. Le repos expose une Live Activity via `expo-widgets`, dont la présentation Sport est rendue directement par SwiftUI dans l'extension: countdown système basé sur l'échéance persistée, exercice et prochaine série, pause statique, reprise, réconciliation au lancement et lien vers la bonne séance. Expo Go ne contient pas cette extension; il faut installer l'IPA GitHub avec SideStore pour la valider. Expo ne peut pas terminer l'activité à l'échéance si le processus reste suspendu; l'app la termine au retour au premier plan. Shortcuts n'est pas encore implémenté.
 
 Le coffre chiffre les photos et leurs miniatures en AES-256-GCM dans le conteneur privé de Sport. La clé aléatoire est gardée dans SecureStore avec la protection du jeu biométrique actuel et de cet appareil. Progression demande une action explicite de Face ID, se verrouille en quittant l'onglet et masque l'aperçu natif de l'app lors des transitions vers l'arrière-plan. L'import depuis Photos ou la caméra crée une copie indépendante. L'export vers Photos est explicite et la copie exportée n'est plus protégée par le coffre. Le coffre nécessite un development build iOS : Expo Go ne contient pas le module local de protection de fichiers/aperçus, et ne permet pas de valider Face ID.
 
@@ -56,7 +56,7 @@ npx expo export --platform ios
 git diff --check
 ```
 
-L'export iOS vérifie la génération du bundle JavaScript; il ne remplace pas un test sur iPhone. Les vérifications physiques de l'étape 9 (Lock Screen, Dynamic Island, deep link, pause/reprise, skip, expiration et relaunch) restent obligatoires.
+L'export iOS vérifie la génération du bundle JavaScript; il ne remplace pas un test sur iPhone. Le build 7 a conservé l'écran Live Activity noir sur iOS 27.2; la correction SwiftUI native doit encore être vérifiée sur iPhone pour le Lock Screen, la Dynamic Island, le deep link, pause/reprise, skip, expiration et relaunch.
 
 ## Organisation
 
