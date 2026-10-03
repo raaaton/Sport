@@ -259,7 +259,7 @@ test('explicit Photos export removes the protected temporary file after saving o
     async saveToPhotos() { calls.push('save'); },
     async remove() { calls.push('remove'); },
   });
-  assert.deepEqual(calls, ['write', 'protect', 'save', 'remove']);
+  assert.deepEqual(calls, ['protect', 'write', 'save', 'remove']);
   calls.length = 0;
   await assert.rejects(exportPhotoExplicitly(new Uint8Array([1]), {
     async write() { calls.push('write'); },
@@ -267,5 +267,5 @@ test('explicit Photos export removes the protected temporary file after saving o
     async saveToPhotos() { throw new Error('permission denied'); },
     async remove() { calls.push('remove'); },
   }), /permission denied/);
-  assert.deepEqual(calls, ['write', 'protect', 'remove']);
+  assert.deepEqual(calls, ['protect', 'write', 'remove']);
 });

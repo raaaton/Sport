@@ -12,6 +12,7 @@ import { commitEncryptedPhoto, deleteEncryptedPhoto, deleteEncryptedPhotoCollect
 import { getConfiguredVaultKey, getPendingVaultKey } from './vaultKeyAccess';
 
 const KEY_PREFIX = 'sport.progress.vault.key.';
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const secureStoreOptions: SecureStore.SecureStoreOptions = {
   requireAuthentication: true,
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
@@ -64,12 +65,25 @@ function getAad(photoId: string, date: string, role: 'original' | 'thumbnail'): 
 }
 
 function toBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  const chunks: string[] = [];
+  const bytesPerChunk = 3 * 8192;
+  for (let offset = 0; offset < bytes.length; offset += bytesPerChunk) {
+    const end = Math.min(bytes.length, offset + bytesPerChunk);
+    let encoded = '';
+    for (let index = offset; index < end; index += 3) {
+      const first = bytes[index]!;
+      const hasSecond = index + 1 < end;
+      const hasThird = index + 2 < end;
+      const second = hasSecond ? bytes[index + 1]! : 0;
+      const third = hasThird ? bytes[index + 2]! : 0;
+      encoded += BASE64_ALPHABET[first >> 2];
+      encoded += BASE64_ALPHABET[((first & 0x03) << 4) | (second >> 4)];
+      encoded += hasSecond ? BASE64_ALPHABET[((second & 0x0f) << 2) | (third >> 6)] : '=';
+      encoded += hasThird ? BASE64_ALPHABET[third & 0x3f] : '=';
+    }
+    chunks.push(encoded);
   }
-  return btoa(binary);
+  return chunks.join('');
 }
 
 async function removeTemporaryUri(uri: string): Promise<void> {
@@ -112,8 +126,15 @@ export class ProgressVaultService {
       read: async (uri) => new File(uri).bytes(),
       remove: removeTemporaryUri,
     });
-    const encryptedOriginal = await this.dependencies.crypto.encrypt(inputs.original, key, getAad(id, request.date, 'original'));
-    const encryptedThumbnail = await this.dependencies.crypto.encrypt(inputs.thumbnail, key, getAad(id, request.date, 'thumbnail'));
+    let encryptedOriginal: Uint8Array;
+    let encryptedThumbnail: Uint8Array;
+    try {
+      encryptedOriginal = await this.dependencies.crypto.encrypt(inputs.original, key, getAad(id, request.date, 'original'));
+      encryptedThumbnail = await this.dependencies.crypto.encrypt(inputs.thumbnail, key, getAad(id, request.date, 'thumbnail'));
+    } finally {
+      inputs.original.fill(0);
+      inputs.thumbnail.fill(0);
+    }
     const photo: ProgressPhoto = {
       id,
       date: request.date,
@@ -142,7 +163,11 @@ export class ProgressVaultService {
 
   async previewPhoto(photo: ProgressPhoto, key: string, thumbnail = false): Promise<PhotoPreview> {
     const bytes = await this.decryptPhoto(photo, key, thumbnail);
-    return { photo, uri: `data:${thumbnail ? 'image/jpeg' : photo.mimeType};base64,${toBase64(bytes)}` };
+    try {
+      return { photo, uri: `data:${thumbnail ? 'image/jpeg' : photo.mimeType};base64,${toBase64(bytes)}` };
+    } finally {
+      bytes.fill(0);
+    }
   }
 
   async deletePhoto(db: SportDatabase, photo: ProgressPhoto): Promise<void> {
@@ -157,12 +182,16 @@ export class ProgressVaultService {
     const bytes = await this.decryptPhoto(photo, key);
     const temporaryFile = new File(destinationUri);
     temporaryFile.create({ intermediates: true, overwrite: true });
-    await exportPhotoExplicitly(bytes, {
-      write: async (value) => { temporaryFile.write(value); },
-      protect: () => protectVaultPath(temporaryFile.uri),
-      saveToPhotos: async () => { await Asset.create(temporaryFile.uri); },
-      remove: async () => { if (temporaryFile.exists) temporaryFile.delete(); },
-    });
+    try {
+      await exportPhotoExplicitly(bytes, {
+        write: async (value) => { temporaryFile.write(value); },
+        protect: () => protectVaultPath(temporaryFile.uri),
+        saveToPhotos: async () => { await Asset.create(temporaryFile.uri); },
+        remove: async () => { if (temporaryFile.exists) temporaryFile.delete(); },
+      });
+    } finally {
+      bytes.fill(0);
+    }
   }
 
   async deleteAllPhotos(db: SportDatabase): Promise<void> {

@@ -85,8 +85,8 @@ export type ExplicitPhotoExportPort = {
 /** Called only from the user's confirmed export action; plaintext remains in a protected temp file briefly. */
 export async function exportPhotoExplicitly(bytes: Uint8Array, port: ExplicitPhotoExportPort): Promise<void> {
   try {
-    await port.write(bytes);
     await port.protect();
+    await port.write(bytes);
     await port.saveToPhotos();
   } finally {
     await port.remove();
