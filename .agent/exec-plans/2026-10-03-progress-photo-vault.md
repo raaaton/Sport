@@ -50,7 +50,8 @@ Replace the Progress placeholder with a local photo vault. Users can configure b
 
 - [x] Read `AGENTS.md`, `PROJECT.md`, `docs/DESIGN.md`, `.agent/PLANS.md`, the recent Weight/Progression/History/Notifications/Schedule plans, SQLite/storage/navigation code and installed Expo package versions. Confirm `docs/ROADMAP.md` and `docs/SECURITY.md` are absent.
 - [x] Verify that the installed SDK 57 Expo Crypto provides AES-GCM and SecureStore `requireAuthentication` maps to the current biometric set; verify the native file-protection and media-library APIs needed.
-- [ ] Commit this plan before implementation.
+- [x] Commit this plan before implementation (`3edf0d2`).
+- [x] Add schema v7 metadata, pure session/date/lock rules, and repository tests (`f45d981`).
 - [ ] Add schema, native file protection and tested vault/key foundations.
 - [ ] Add encrypted import/storage/gallery services and tests.
 - [ ] Add Progress and Settings UX, privacy curtain, lock policy and explicit Photos export.

@@ -36,6 +36,20 @@
       ],
       "expo-sqlite",
       "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Sport utilise Face ID pour protéger votre coffre de photos privé."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Sport importe une copie de la photo que vous choisissez dans votre coffre privé.",
+          "cameraPermission": "Sport utilise l’appareil photo pour ajouter une photo à votre coffre privé.",
+          "microphonePermission": false
+        }
+      ],
       "expo-audio",
       "expo-notifications"
     ],
