@@ -23,6 +23,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="workout/prepare" options={{ headerShown: false }} />
         <Stack.Screen name="workout/[workoutId]" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="workout-history" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
