@@ -119,18 +119,19 @@ private struct SportRestIslandSection: View {
       case "minimal":
         Text("R").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
       case "expandedLeading":
-        VStack(alignment: .leading, spacing: 3) {
-          Text(props.state == "paused" ? "PAUSE" : "REST").font(.caption2.weight(.bold)).foregroundStyle(.white.opacity(0.75))
-          Text(props.exerciseName).font(.subheadline).lineLimit(1).foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 4) {
+          Text(props.exerciseName).font(.subheadline.weight(.semibold)).lineLimit(1).foregroundStyle(.white)
+          Text("Prochaine · \\(props.nextSetNumber)/\\(props.targetSets)")
+            .font(.caption).lineLimit(1).foregroundStyle(.white.opacity(0.72))
         }
       case "expandedTrailing":
         VStack(alignment: .trailing, spacing: 3) {
+          Text(props.state == "paused" ? "PAUSE" : "REST")
+            .font(.caption2.weight(.bold)).foregroundStyle(.white.opacity(0.72))
           SportRestClock(props: props, size: 22).foregroundStyle(.white)
-          Text("\\(props.nextSetNumber)/\\(props.targetSets)").font(.caption2).foregroundStyle(.white.opacity(0.75))
         }
       case "expandedBottom":
-        Text("Prochaine série · \\(props.nextSetNumber)/\\(props.targetSets)")
-          .font(.footnote).lineLimit(1).foregroundStyle(.white.opacity(0.8))
+        EmptyView()
       default:
         EmptyView()
       }
@@ -146,17 +147,20 @@ private struct SportRestLockScreen: View {
 
   var body: some View {
     if let props = SportRestProps.decode(propsJSON) {
-      VStack(alignment: .leading, spacing: 5) {
-        Text(props.exerciseName).font(.headline).lineLimit(1)
-        Text("Prochaine série · \\(props.nextSetNumber)/\\(props.targetSets)")
-          .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-        HStack(spacing: 8) {
-          Text(props.state == "paused" ? "PAUSE" : "REST").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-          SportRestClock(props: props, size: 32)
+      HStack(alignment: .center, spacing: 16) {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(props.exerciseName).font(.headline.weight(.semibold)).lineLimit(1)
+          Text("Prochaine série · \\(props.nextSetNumber)/\\(props.targetSets)")
+            .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+        }
+        Spacer(minLength: 8)
+        VStack(alignment: .trailing, spacing: 3) {
+          Text(props.state == "paused" ? "PAUSE" : "REST").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+          SportRestClock(props: props, size: 30)
         }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(.vertical, 4)
+      .padding(.vertical, 2)
     } else {
       Text("Repos en cours").font(.headline).frame(maxWidth: .infinity, alignment: .leading)
     }

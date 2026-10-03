@@ -12,7 +12,7 @@ Sport est une application personnelle de suivi d'entraînement, conçue d'abord 
 | Système de lest | Implémenté; validation iPhone à faire |
 | Notifications locales et planning éditable | Implémentés; validation iPhone à faire |
 | Coffre de photos de progression | Implémenté; development build et validation iPhone obligatoires |
-| Live Activity / Dynamic Island (étape 9) | Présentation SwiftUI native via l'extension Expo Widgets; nouvelle validation iPhone obligatoire après le bug de rendu |
+| Live Activity / Dynamic Island (étape 9) | Rendu visible confirmé sur iPhone; présentation resserrée à revalider avec la prochaine IPA |
 
 Les fonctions livrées comprennent Aujourd'hui, le démarrage et la reprise d'une séance, la saisie des séries, le timer de repos et sa Live Activity, l'historique avec ajout/modification/suppression, la progression basée sur les performances, le calcul des charges réalisables à partir du matériel, les notifications locales, et un coffre privé pour les photos de progression.
 
@@ -56,7 +56,7 @@ npx expo export --platform ios
 git diff --check
 ```
 
-L'export iOS vérifie la génération du bundle JavaScript; il ne remplace pas un test sur iPhone. Le build 7 a conservé l'écran Live Activity noir sur iOS 27.2; la correction SwiftUI native doit encore être vérifiée sur iPhone pour le Lock Screen, la Dynamic Island, le deep link, pause/reprise, skip, expiration et relaunch.
+L'export iOS vérifie la génération du bundle JavaScript; il ne remplace pas un test sur iPhone. La Live Activity SwiftUI native apparaît maintenant sur le Lock Screen et dans la Dynamic Island sous iOS 27.2. Le resserrement visuel des présentations développée et verrouillée doit encore être vérifié avec la prochaine IPA; pause/reprise, skip, expiration et relaunch restent aussi à revérifier après cette build.
 
 ## Organisation
 
