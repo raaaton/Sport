@@ -69,7 +69,8 @@
             "enableSceneSupport": true
           }
         }
-      ]
+      ],
+      "expo-widgets"
     ],
     "experiments": {
       "typedRoutes": true
