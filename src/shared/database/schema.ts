@@ -1,6 +1,6 @@
 import type { SportDatabase } from './contract.ts';
 
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 const INITIAL_SCHEMA = `
 CREATE TABLE exercises (
@@ -84,6 +84,20 @@ const SCHEDULES = [
   { id: 'sunday-pull-abs', day: 7, type: 'Pull + Abs', exerciseIds: ['chin-ups', 'l-sit'] },
 ];
 
+export async function migrateWorkoutReminderTimesToSchedules(tx: SportDatabase, now: string): Promise<void> {
+  await tx.execAsync(`
+    ALTER TABLE workout_schedules ADD COLUMN reminder_time_minutes INTEGER CHECK (reminder_time_minutes IS NULL OR reminder_time_minutes BETWEEN 0 AND 1439);
+    ALTER TABLE notification_preferences ADD COLUMN photo_time_minutes INTEGER NOT NULL DEFAULT 360 CHECK (photo_time_minutes BETWEEN 0 AND 1439);
+    UPDATE notification_preferences SET photo_time_minutes = photo_hour * 60;
+    UPDATE workout_schedules
+    SET reminder_time_minutes = (
+      SELECT workout_hour * 60 FROM notification_preferences WHERE id=1
+    )
+    WHERE is_active=1 AND (SELECT workout_hour FROM notification_preferences WHERE id=1) IS NOT NULL;
+  `);
+  await tx.runAsync('INSERT INTO schema_migrations(version, applied_at) VALUES (6, ?)', now);
+}
+
 export async function migrateAndSeed(db: SportDatabase, now: () => string = () => new Date().toISOString()): Promise<void> {
   await db.execAsync(`CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY NOT NULL, applied_at TEXT NOT NULL);`);
   const applied = await db.getFirstAsync<{ version: number }>('SELECT MAX(version) AS version FROM schema_migrations');
@@ -164,6 +178,11 @@ export async function migrateAndSeed(db: SportDatabase, now: () => string = () =
       await tx.runAsync('INSERT INTO schema_migrations(version, applied_at) VALUES (5, ?)', now());
     });
   }
+  if ((applied?.version ?? 0) < 6) {
+    await db.withExclusiveTransactionAsync(async (tx) => {
+      await migrateWorkoutReminderTimesToSchedules(tx, now());
+    });
+  }
   await db.withExclusiveTransactionAsync(async (tx) => {
     await tx.runAsync('INSERT OR IGNORE INTO weight_inventory_settings(id,base_weight_grams) VALUES (1,3000)');
     await tx.runAsync('INSERT OR IGNORE INTO notification_preferences(id,workout_enabled,photo_enabled,workout_hour,photo_hour) VALUES (1,0,0,NULL,6)');
@@ -187,8 +206,10 @@ export async function migrateAndSeed(db: SportDatabase, now: () => string = () =
       );
     }
     for (const schedule of SCHEDULES) {
-      const existingSchedule = await tx.getFirstAsync<{ id: string }>('SELECT id FROM workout_schedules WHERE weekday=?', schedule.day);
+      const existingSchedule = await tx.getFirstAsync<{ id: string }>('SELECT id FROM workout_schedules WHERE id=?', schedule.id);
       if (existingSchedule) continue;
+      const occupiedDay = await tx.getFirstAsync<{ id: string }>('SELECT id FROM workout_schedules WHERE weekday=?', schedule.day);
+      if (occupiedDay) continue;
       await tx.runAsync('INSERT INTO workout_schedules(id,weekday,workout_type,is_active) VALUES (?,?,?,1)', schedule.id, schedule.day, schedule.type);
       for (const [sortOrder, exerciseId] of schedule.exerciseIds.entries()) {
         await tx.runAsync('INSERT INTO workout_schedule_exercises(schedule_id,exercise_id,sort_order) VALUES (?,?,?)', schedule.id, exerciseId, sortOrder);

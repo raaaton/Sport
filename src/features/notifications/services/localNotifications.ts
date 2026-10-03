@@ -72,7 +72,7 @@ export async function syncSportNotifications(
   if (permissionAllowsSchedule(currentPermission)) {
     const schedules = await getWorkoutReminderSchedules(db);
     const lastDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + WORKOUT_NOTIFICATION_HORIZON_DAYS - 1);
-    const workouts = preferences.workoutEnabled && preferences.workoutHour !== null
+    const workouts = preferences.workoutEnabled
       ? await getWorkoutOccurrences(db, localDate(now), localDate(lastDay))
       : [];
     desired = createNotificationSpecs(schedules, workouts, preferences, now);
