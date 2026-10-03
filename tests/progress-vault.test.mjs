@@ -15,6 +15,7 @@ import {
   updateProgressVaultAutoLock,
 } from '../src/features/progress/data/progressPhotoRepository.ts';
 import {
+  biometricUnlockDisposition,
   autoLockDeadline,
   hasAutoLockExpired,
   shouldLockVaultForAppState,
@@ -111,6 +112,13 @@ test('Face ID presentation may transiently deactivate the app without locking th
   assert.equal(shouldLockVaultForAppState('background', true), true);
   assert.equal(shouldLockVaultForAppState('background', false), true);
   assert.equal(shouldLockVaultForAppState('active', false), false);
+});
+
+test('successful Face ID waits for the foreground instead of dropping an inactive result', () => {
+  assert.equal(biometricUnlockDisposition('active', true), 'complete');
+  assert.equal(biometricUnlockDisposition('inactive', true), 'wait_for_foreground');
+  assert.equal(biometricUnlockDisposition('background', true), 'discard');
+  assert.equal(biometricUnlockDisposition('active', false), 'discard');
 });
 
 test('vault session transitions fail closed and reject stale completions', () => {

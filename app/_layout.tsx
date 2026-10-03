@@ -48,12 +48,10 @@ export default function RootLayout() {
         {!isActive ? (
           <View
             pointerEvents="auto"
-            accessibilityLabel="Contenu masqué"
             style={[StyleSheet.absoluteFill, styles.privacyCurtain, { backgroundColor: colors[colorScheme].groupedBackground }]}
           >
             <AppSymbol name="lock.fill" size={24} color={colors[colorScheme].tertiary} />
             <AppText variant="headline">Sport</AppText>
-            <AppText colorRole="secondary" variant="footnote">Contenu masqué</AppText>
           </View>
         ) : null}
         <StatusBar style="auto" />

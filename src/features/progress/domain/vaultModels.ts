@@ -82,3 +82,10 @@ export function shouldLockVaultForAppState(nextState: string, biometricPromptInF
   if (nextState === 'inactive' && biometricPromptInFlight) return false;
   return true;
 }
+
+export type BiometricUnlockDisposition = 'complete' | 'wait_for_foreground' | 'discard';
+
+export function biometricUnlockDisposition(appState: string, attemptIsCurrent: boolean): BiometricUnlockDisposition {
+  if (!attemptIsCurrent || appState === 'background') return 'discard';
+  return appState === 'active' ? 'complete' : 'wait_for_foreground';
+}

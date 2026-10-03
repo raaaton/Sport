@@ -84,14 +84,8 @@ private enum SportVaultPrivacyShield {
       title.font = .preferredFont(forTextStyle: .headline)
       title.textColor = .label
 
-      let subtitle = UILabel()
-      subtitle.text = "Contenu masqué"
-      subtitle.font = .preferredFont(forTextStyle: .footnote)
-      subtitle.textColor = .secondaryLabel
-
       content.addArrangedSubview(lock)
       content.addArrangedSubview(title)
-      content.addArrangedSubview(subtitle)
       cover.addSubview(content)
       NSLayoutConstraint.activate([
         content.centerXAnchor.constraint(equalTo: cover.centerXAnchor),

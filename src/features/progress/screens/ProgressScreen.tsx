@@ -11,7 +11,7 @@ import { ProgressPhotoDateSheet } from '../components/ProgressPhotoDateSheet';
 import { ProgressPhotoGallery } from '../components/ProgressPhotoGallery';
 import { ProgressPhotoViewer } from '../components/ProgressPhotoViewer';
 import { getProgressVaultSettings } from '../data/progressPhotoRepository';
-import { autoLockDeadline, hasAutoLockExpired, shouldLockVaultForAppState, transitionVaultSession, type ProgressPhoto, type ProgressVaultSettings, type VaultSessionState } from '../domain/vaultModels';
+import { autoLockDeadline, biometricUnlockDisposition, hasAutoLockExpired, shouldLockVaultForAppState, transitionVaultSession, type ProgressPhoto, type ProgressVaultSettings, type VaultSessionState } from '../domain/vaultModels';
 import { progressVaultService, type PhotoPreview } from '../services/progressVaultService';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -45,6 +45,29 @@ async function assertFaceIdAvailable(): Promise<void> {
   if (!hasHardware || !enrolled || !types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
     throw new Error('Face ID doit être disponible et configuré sur cet iPhone pour créer le coffre.');
   }
+}
+
+function waitForForeground(): Promise<boolean> {
+  if (AppState.currentState === 'active') return Promise.resolve(true);
+  if (AppState.currentState === 'background') return Promise.resolve(false);
+
+  return new Promise((resolve) => {
+    let finished = false;
+    let subscription: ReturnType<typeof AppState.addEventListener> | null = null;
+    const finish = (foreground: boolean) => {
+      if (finished) return;
+      finished = true;
+      subscription?.remove();
+      resolve(foreground);
+    };
+    subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') finish(true);
+      else if (state === 'background') finish(false);
+    });
+    // Close the gap between the initial state check and subscribing.
+    if (AppState.currentState === 'active') finish(true);
+    else if (AppState.currentState === 'background') finish(false);
+  });
 }
 
 export function ProgressScreen() {
@@ -119,7 +142,14 @@ export function ProgressScreen() {
       // presentation transition as a vault lock.
       biometricPromptInFlightRef.current = true;
       const result = await progressVaultService.setupOrUnlock(db);
+      const disposition = biometricUnlockDisposition(
+        AppState.currentState,
+        generation === sessionGenerationRef.current,
+      );
+      if (disposition === 'discard') return;
+      if (disposition === 'wait_for_foreground' && !(await waitForForeground())) return;
       biometricPromptInFlightRef.current = false;
+      if (generation !== sessionGenerationRef.current || AppState.currentState !== 'active') return;
       await progressVaultService.reconcileFiles(db);
       if (generation !== sessionGenerationRef.current || AppState.currentState !== 'active') return;
       warmKeyRef.current = result.key;
