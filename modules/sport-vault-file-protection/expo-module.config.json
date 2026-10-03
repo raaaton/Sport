@@ -1,6 +1,7 @@
 {
   "platforms": ["apple"],
   "apple": {
+    "podspecPath": "SportVaultFileProtection.podspec",
     "modules": ["SportVaultFileProtectionModule"]
   }
 }
