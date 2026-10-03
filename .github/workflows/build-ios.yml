@@ -50,6 +50,8 @@ jobs:
           npm ci
           grep -Fq 'SportRestLockScreen(propsJSON: context.state.props)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'Text(timerInterval: Date.now...deadline' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -A1 -F 'case "compactLeading":' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift | grep -Fq 'EmptyView()'
+          grep -Fq 'HStack(spacing: 6)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq '.activityBackgroundTint(SportActivityStyle.lockScreenBackground)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq '.keylineTint(SportActivityStyle.islandKeyline)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           npx expo prebuild --platform ios --no-install

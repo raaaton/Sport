@@ -81,6 +81,7 @@ if (!source.includes('.keylineTint(SportActivityStyle.islandKeyline)')) {
 
 const marker = 'extension WidgetConfiguration {';
 const nativeViews = `
+// SPORT_REST_LIVE_ACTIVITY_NATIVE_VIEWS_BEGIN
 @available(iOS 16.1, *)
 private enum SportActivityStyle {
   static let lockScreenBackground = Color(uiColor: UIColor { traits in
@@ -157,13 +158,16 @@ private struct SportRestIslandSection: View {
     if let props = SportRestProps.decode(propsJSON) {
       switch sectionName {
       case "compactLeading":
-        Text("REST").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+        EmptyView()
       case "compactTrailing":
-        if props.state == "paused" {
-          Text("Pause").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-        } else {
-          SportRestClock(props: props, size: 14).foregroundStyle(.white)
+        HStack(spacing: 6) {
+          Text(props.state == "paused" ? "PAUSE" : "REST")
+            .font(.system(size: 11, weight: .bold))
+            .lineLimit(1)
+          SportRestClock(props: props, size: 14)
         }
+        .foregroundStyle(.white)
+        .fixedSize(horizontal: true, vertical: false)
       case "minimal":
         Text("R").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
       case "expandedLeading":
@@ -178,6 +182,7 @@ private struct SportRestIslandSection: View {
             .font(.caption2.weight(.bold)).foregroundStyle(.white.opacity(0.72))
           SportRestClock(props: props, size: 22).foregroundStyle(.white)
         }
+        .fixedSize(horizontal: true, vertical: false)
       case "expandedBottom":
         EmptyView()
       default:
@@ -197,15 +202,17 @@ private struct SportRestLockScreen: View {
     if let props = SportRestProps.decode(propsJSON) {
       HStack(alignment: .center, spacing: 16) {
         VStack(alignment: .leading, spacing: 4) {
-          Text(props.exerciseName).font(.headline.weight(.semibold)).lineLimit(1)
+          Text(props.exerciseName).font(.headline.weight(.semibold)).lineLimit(1).truncationMode(.tail)
           Text("Prochaine série · \\(props.nextSetNumber)/\\(props.targetSets)")
-            .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+            .font(.subheadline).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
         }
+        .layoutPriority(1)
         Spacer(minLength: 8)
         VStack(alignment: .trailing, spacing: 3) {
           Text(props.state == "paused" ? "PAUSE" : "REST").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
           SportRestClock(props: props, size: 30)
         }
+        .fixedSize(horizontal: true, vertical: false)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.vertical, 2)
@@ -214,16 +221,32 @@ private struct SportRestLockScreen: View {
     }
   }
 }
+// SPORT_REST_LIVE_ACTIVITY_NATIVE_VIEWS_END
 
 `;
 
-if (!source.includes('private struct SportRestProps: Decodable')) {
+const nativeViewsStart = '// SPORT_REST_LIVE_ACTIVITY_NATIVE_VIEWS_BEGIN';
+const nativeViewsEnd = '// SPORT_REST_LIVE_ACTIVITY_NATIVE_VIEWS_END';
+const existingNativeViewsStart = source.indexOf(nativeViewsStart);
+const existingNativeViewsEnd = source.indexOf(nativeViewsEnd);
+if (existingNativeViewsStart !== -1 && existingNativeViewsEnd !== -1) {
+  source = source.slice(0, existingNativeViewsStart) + nativeViews.trimStart().trimEnd() + source.slice(existingNativeViewsEnd + nativeViewsEnd.length);
+} else if (source.includes('private struct SportRestProps: Decodable')) {
+  const existingViewsStart = source.lastIndexOf('@available(iOS 16.1, *)\nprivate enum SportActivityStyle {', source.indexOf('private struct SportRestProps: Decodable'));
+  const existingViewsEnd = source.indexOf(marker, source.indexOf('private struct SportRestProps: Decodable'));
+  if (existingViewsStart === -1 || existingViewsEnd === -1) {
+    throw new Error('Could not locate the previously injected Sport native Live Activity views.');
+  }
+  source = source.slice(0, existingViewsStart) + nativeViews.trimStart().trimEnd() + '\n\n' + source.slice(existingViewsEnd);
+} else {
   if (!source.includes(marker)) throw new Error('Could not locate the expo-widgets configuration insertion point.');
   source = source.replace(marker, `${nativeViews}${marker}`);
 }
 
 if (!source.includes('SportRestLockScreen(propsJSON: context.state.props)') ||
     !source.includes('Text(timerInterval: Date.now...deadline') ||
+    !source.includes('case "compactLeading":\n        EmptyView()') ||
+    !source.includes('HStack(spacing: 6)') ||
     !source.includes('.activityBackgroundTint(SportActivityStyle.lockScreenBackground)') ||
     !source.includes('.keylineTint(SportActivityStyle.islandKeyline)')) {
   throw new Error('The Sport native Live Activity presentation patch was not applied completely.');
