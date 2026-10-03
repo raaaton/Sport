@@ -20,7 +20,13 @@ export type WorkoutSet = {
   reps: number | null;
   durationSeconds: number | null;
   addedWeight: number | null;
+  /** Canonical gram value for inventory-selected loads; null for legacy rows. */
+  addedWeightGrams?: number | null;
+  /** Frozen component labels/weights selected when this set was recorded. */
+  loadComposition?: WeightComponentSnapshot[] | null;
 };
+
+export type WeightComponentSnapshot = { itemId: string; name: string; weightGrams: number };
 
 export type PreviousPerformance = { sets: WorkoutSet[]; date: string; feeling: number | null };
 

@@ -1,5 +1,6 @@
 import type { SportDatabase } from '../../../shared/database/contract.ts';
 import type { Exercise, RestTimer, WorkoutSession, WorkoutSet } from './models.ts';
+import type { AvailableLoad } from '../../weights/domain/weightSystem.ts';
 import { finishExercise, recordSet, startOrResumeToday } from '../data/workoutRepository.ts';
 
 export type IdFactory = () => string;
@@ -23,18 +24,20 @@ export function validateSetEntry(valueText: string, weightText: string, exercise
   return { value: valueError, weight: weightError };
 }
 
-export async function completeSet(db: SportDatabase, input: { workoutId: string; workoutExerciseId: string; exercise: Exercise; value: string; weight: string; idFactory: IdFactory; clock?: () => Date }): Promise<{ set: WorkoutSet; restTimer: RestTimer | null }> {
+export async function completeSet(db: SportDatabase, input: { workoutId: string; workoutExerciseId: string; exercise: Exercise; value: string; weight?: string; load?: AvailableLoad; idFactory: IdFactory; clock?: () => Date }): Promise<{ set: WorkoutSet; restTimer: RestTimer | null }> {
   const normalizedValue = input.value.trim().replace(',', '.');
   const value = Number(normalizedValue);
-  const normalizedWeight = input.weight.trim().replace(',', '.');
+  const normalizedWeight = (input.load ? (input.load.addedWeightGrams / 1000).toFixed(3) : input.weight ?? '').trim().replace(',', '.');
   const addedWeight = normalizedWeight === '' ? null : Number(normalizedWeight);
-  const errors = validateSetEntry(input.value, input.weight, input.exercise);
+  const errors = validateSetEntry(input.value, normalizedWeight, input.exercise);
   if (errors.value) throw new Error(errors.value);
   if (errors.weight) throw new Error(errors.weight);
   return recordSet(db, {
     workoutId: input.workoutId, workoutExerciseId: input.workoutExerciseId, exercise: input.exercise,
     ...(input.exercise.trackingType === 'reps' ? { reps: value } : { durationSeconds: value }),
-    addedWeight, idFactory: input.idFactory, clock: input.clock,
+    addedWeight,
+    ...(input.load ? { addedWeightGrams: input.load.addedWeightGrams, loadComposition: input.load.composition } : {}),
+    idFactory: input.idFactory, clock: input.clock,
   });
 }
 

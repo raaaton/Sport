@@ -1,5 +1,5 @@
 import type { SportDatabase } from '../../../shared/database/contract.ts';
-import type { Exercise, PreviousPerformance, RestTimer, TodayPlan, WorkoutExercise, WorkoutSession, WorkoutSet } from '../domain/models.ts';
+import type { Exercise, PreviousPerformance, RestTimer, TodayPlan, WeightComponentSnapshot, WorkoutExercise, WorkoutSession, WorkoutSet } from '../domain/models.ts';
 import { createStartedRestTimer, cancelActiveRestTimers } from './restTimerRepository.ts';
 
 type IdFactory = () => string;
@@ -7,7 +7,7 @@ type Clock = () => Date;
 type ExerciseRow = { id: string; name: string; category: string; tracking_type: 'reps' | 'duration'; target_sets: number; target_rep_min: number | null; target_rep_max: number | null; target_duration_seconds: number | null; target_added_weight: number | null; default_rest_seconds: number };
 type SessionRow = { id: string; date: string; schedule_id: string | null; workout_type: string; started_at: string; ended_at: string | null; status: 'active' | 'completed' | 'cancelled' };
 type WorkoutExerciseRow = { id: string; exercise_id: string; sort_order: number; completed: number; feeling: number | null };
-type SetRow = { id: string; set_number: number; reps: number | null; duration_seconds: number | null; added_weight: number | null };
+type SetRow = { id: string; set_number: number; reps: number | null; duration_seconds: number | null; added_weight: number | null; added_weight_grams: number | null; load_composition_json: string | null };
 
 const toExercise = (row: ExerciseRow): Exercise => ({
   id: row.id, name: row.name, category: row.category, trackingType: row.tracking_type,
@@ -19,8 +19,29 @@ const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth(
 const isoWeekday = (date: Date) => date.getDay() === 0 ? 7 : date.getDay();
 
 async function readSets(db: SportDatabase, workoutExerciseId: string): Promise<WorkoutSet[]> {
-  const rows = await db.getAllAsync<SetRow>('SELECT id,set_number,reps,duration_seconds,added_weight FROM workout_sets WHERE workout_exercise_id=? AND completed=1 ORDER BY set_number', workoutExerciseId);
-  return rows.map((set) => ({ id: set.id, setNumber: set.set_number, reps: set.reps, durationSeconds: set.duration_seconds, addedWeight: set.added_weight }));
+  const rows = await db.getAllAsync<SetRow>('SELECT id,set_number,reps,duration_seconds,added_weight,added_weight_grams,load_composition_json FROM workout_sets WHERE workout_exercise_id=? AND completed=1 ORDER BY set_number', workoutExerciseId);
+  return rows.map((set) => ({
+    id: set.id,
+    setNumber: set.set_number,
+    reps: set.reps,
+    durationSeconds: set.duration_seconds,
+    addedWeight: set.added_weight,
+    addedWeightGrams: set.added_weight_grams,
+    loadComposition: parseLoadComposition(set.load_composition_json),
+  }));
+}
+
+function parseLoadComposition(value: string | null): WeightComponentSnapshot[] | null {
+  if (!value) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return null;
+    return parsed.every((item) => item && typeof item.itemId === 'string' && typeof item.name === 'string' && Number.isSafeInteger(item.weightGrams) && item.weightGrams > 0)
+      ? parsed as WeightComponentSnapshot[]
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 async function readSession(db: SportDatabase, workoutId: string): Promise<WorkoutSession | null> {
@@ -136,7 +157,7 @@ export async function getLastPerformance(db: SportDatabase, exerciseId: string):
   return row ? { date: row.date, feeling: row.feeling, sets: await readSets(db, row.workout_exercise_id) } : null;
 }
 
-export async function recordSet(db: SportDatabase, input: { workoutId: string; workoutExerciseId: string; exercise: Exercise; reps?: number; durationSeconds?: number; addedWeight?: number | null; idFactory: IdFactory; clock?: Clock }): Promise<{ set: WorkoutSet; restTimer: RestTimer | null }> {
+export async function recordSet(db: SportDatabase, input: { workoutId: string; workoutExerciseId: string; exercise: Exercise; reps?: number; durationSeconds?: number; addedWeight?: number | null; addedWeightGrams?: number | null; loadComposition?: WeightComponentSnapshot[] | null; idFactory: IdFactory; clock?: Clock }): Promise<{ set: WorkoutSet; restTimer: RestTimer | null }> {
   return db.withExclusiveTransactionAsync(async (tx) => {
     const existing = await tx.getFirstAsync<{ completed_sets: number; completed: number; workout_id: string; status: string }>(
       `SELECT COUNT(s.id) AS completed_sets, we.completed, we.workout_id, w.status FROM workout_exercises we
@@ -152,15 +173,23 @@ export async function recordSet(db: SportDatabase, input: { workoutId: string; w
     );
     if (activeRest) throw new Error('Terminez ou passez le temps de repos avant la prochaine série.');
     const setNumber = existing.completed_sets + 1;
+    const addedWeight = input.addedWeight ?? null;
+    const addedWeightGrams = input.addedWeightGrams !== undefined
+      ? input.addedWeightGrams
+      : addedWeight === null ? null : Math.round(addedWeight * 1000);
+    const loadComposition = input.loadComposition ?? null;
     const set: WorkoutSet = {
       id: input.idFactory(), setNumber,
       reps: input.exercise.trackingType === 'reps' ? input.reps ?? null : null,
       durationSeconds: input.exercise.trackingType === 'duration' ? input.durationSeconds ?? null : null,
-      addedWeight: input.addedWeight ?? null,
+      addedWeight,
+      addedWeightGrams,
+      loadComposition,
     };
     await tx.runAsync(
-      'INSERT INTO workout_sets(id,workout_exercise_id,set_number,reps,duration_seconds,added_weight,completed) VALUES (?,?,?,?,?,?,1)',
+      'INSERT INTO workout_sets(id,workout_exercise_id,set_number,reps,duration_seconds,added_weight,completed,added_weight_grams,load_composition_json) VALUES (?,?,?,?,?,?,1,?,?)',
       set.id, input.workoutExerciseId, set.setNumber, set.reps, set.durationSeconds, set.addedWeight,
+      set.addedWeightGrams ?? null, set.loadComposition ? JSON.stringify(set.loadComposition) : null,
     );
     const restTimer = setNumber < input.exercise.targetSets && input.exercise.defaultRestSeconds > 0
       ? await createStartedRestTimer(tx, {

@@ -1,6 +1,6 @@
 import type { SportDatabase } from './contract.ts';
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 const INITIAL_SCHEMA = `
 CREATE TABLE exercises (
@@ -129,7 +129,40 @@ export async function migrateAndSeed(db: SportDatabase, now: () => string = () =
       await tx.runAsync('INSERT INTO schema_migrations(version, applied_at) VALUES (3, ?)', now());
     });
   }
+  if ((applied?.version ?? 0) < 4) {
+    await db.withExclusiveTransactionAsync(async (tx) => {
+      await tx.execAsync(`
+        CREATE TABLE weight_inventory_settings (
+          id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+          base_weight_grams INTEGER NOT NULL CHECK (base_weight_grams > 0)
+        );
+        CREATE TABLE weight_items (
+          id TEXT PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+          weight_grams INTEGER NOT NULL CHECK (weight_grams > 0),
+          is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+          sort_order INTEGER NOT NULL
+        );
+        ALTER TABLE workout_sets ADD COLUMN added_weight_grams INTEGER CHECK (added_weight_grams IS NULL OR added_weight_grams >= 0);
+        ALTER TABLE workout_sets ADD COLUMN load_composition_json TEXT;
+        CREATE INDEX weight_items_order ON weight_items(is_active, sort_order, name);
+      `);
+      await tx.runAsync('INSERT INTO schema_migrations(version, applied_at) VALUES (4, ?)', now());
+    });
+  }
   await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync('INSERT OR IGNORE INTO weight_inventory_settings(id,base_weight_grams) VALUES (1,3000)');
+    const weightedItems = [
+      { id: 'river-inverted', name: "La rivière à l'envers", grams: 900, order: 0 },
+      { id: 'cars-1200', name: '1200 voitures', grams: 2100, order: 1 },
+      { id: 'programming-books-2', name: '2 livres programmation', grams: 1500, order: 2 },
+    ];
+    for (const item of weightedItems) {
+      await tx.runAsync(
+        'INSERT OR IGNORE INTO weight_items(id,name,weight_grams,is_active,sort_order) VALUES (?,?,?,1,?)',
+        item.id, item.name, item.grams, item.order,
+      );
+    }
     for (const exercise of EXERCISES) {
       await tx.runAsync(
         `INSERT OR IGNORE INTO exercises(id,name,category,tracking_type,target_sets,target_rep_min,target_rep_max,target_duration_seconds,default_rest_seconds,sort_order,is_active)
