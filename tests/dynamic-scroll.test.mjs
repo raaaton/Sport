@@ -85,8 +85,8 @@ test('History, Progress, and Settings apply a visible title inside top safe area
   const settingsLayout = readFileSync(new URL('../app/(tabs)/settings/_layout.tsx', import.meta.url), 'utf8');
   assert.match(history, /safeAreaEdges=\{\['top'\]\}/);
   assert.match(history, />Historique</);
-  assert.match(progress, /edges=\{\['top'\]\}/);
-  assert.match(progress, /title="Progression"/);
+  assert.match(progress, /safeAreaEdges=\{\['top', 'bottom'\]\}/);
+  assert.match(progress, />Progression</);
   assert.match(placeholder, /<AppText variant="largeTitle">\{title\}<\/AppText>/);
   assert.match(settings, /safeAreaEdges=\{\['top', 'bottom'\]\}/);
   assert.match(settings, />Réglages</);

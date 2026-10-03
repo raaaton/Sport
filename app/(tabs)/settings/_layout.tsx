@@ -25,6 +25,7 @@ export default function SettingsStackLayout() {
       <Stack.Screen name="weighted-items" options={{ title: 'Lest' }} />
       <Stack.Screen name="timer" options={{ title: 'Minuteur de repos' }} />
       <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+      <Stack.Screen name="vault" options={{ title: 'Coffre photo' }} />
       <Stack.Screen name="preferences" options={{ title: 'Préférences' }} />
       <Stack.Screen name="about" options={{ title: 'À propos' }} />
     </Stack>

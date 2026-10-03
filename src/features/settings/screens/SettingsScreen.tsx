@@ -73,6 +73,17 @@ const sections: { items: SettingsItem[]; title: string }[] = [
       },
     ],
   },
+  {
+    title: 'Confidentialité',
+    items: [
+      {
+        title: 'Coffre photo',
+        description: 'Face ID et verrouillage automatique',
+        icon: 'lock.shield',
+        route: '/settings/vault',
+      },
+    ],
+  },
 ];
 
 export function SettingsScreen() {
