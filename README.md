@@ -29,10 +29,14 @@ Prérequis : Node.js et npm. Depuis la racine du dépôt :
 
 ```sh
 npm ci
-npm start
+npx expo start --go
 ```
 
 `npm start` lance Expo en mode Go. Ouvre ensuite le projet avec Expo Go. Certaines fonctions qui nécessiteront un runtime iOS natif seront testées plus tard avec un development build.
+
+## Build iOS pour SideStore
+
+Chaque push vers `main` déclenche un build iOS non signé sur GitHub Actions et publie l'IPA comme asset d'un prerelease. SideStore est chargé de signer l'IPA pour l'iPhone. Voir [docs/BUILD.md](docs/BUILD.md) pour le workflow, le versioning et les étapes d'installation.
 
 Pour lancer la version web :
 
