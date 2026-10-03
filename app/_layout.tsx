@@ -1,8 +1,10 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
+import { useEffect } from 'react';
 import 'react-native-reanimated';
 
+import { refreshRestLiveActivity } from '@/features/workout/services/restLiveActivity';
 import { useColorScheme } from '@/shared/theme/useColorScheme';
 import { NotificationRuntime } from '@/features/notifications/components/NotificationRuntime';
 
@@ -18,6 +20,14 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    void refreshRestLiveActivity();
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshRestLiveActivity();
+    });
+    return () => appState.remove();
+  }, []);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

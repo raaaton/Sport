@@ -25,6 +25,7 @@ import { WorkoutCompletionScreen } from './WorkoutCompletionScreen';
 import { getAvailableLoads } from '@/features/weights/data/weightRepository';
 import { assessAvailableLoadProgression, formatLoad, formatRecordedLoad, type AvailableLoad } from '@/features/weights/domain/weightSystem';
 import { LoadPicker } from '@/features/weights/components/LoadPicker';
+import { refreshRestLiveActivity } from '../services/restLiveActivity';
 
 type Props = { workoutId: string };
 
@@ -143,6 +144,7 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
       setSession(updated);
       setRestEntry(result.timer ? { exerciseId: result.timer.workoutExerciseId, timer: result.timer } : null);
       setWorkflowState(stateFromSession(updated, result.timer));
+      await refreshRestLiveActivity();
       void selectionHaptic().catch(() => undefined);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Le repos n’a pas pu être modifié.');
@@ -153,6 +155,7 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
     if (!timer) return;
     setRestEntry({ exerciseId: timer.workoutExerciseId, timer });
     if (session) setWorkflowState(stateFromSession(session, timer));
+    void refreshRestLiveActivity();
   }, [session]);
 
   const saveSet = async () => {
@@ -180,6 +183,7 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
       setSession(updated);
       setRestEntry(timer ? { exerciseId: timer.workoutExerciseId, timer } : null);
       setWorkflowState(stateFromSession(updated, timer));
+      await refreshRestLiveActivity();
       void impactHaptic().catch(() => undefined);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La série n’a pas pu être enregistrée.');
@@ -196,6 +200,7 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
       if (updated.status === 'completed') await syncSportNotificationsSafely();
       setSession(updated); setWorkflowState(stateFromSession(updated));
       setRestEntry(null);
+      await refreshRestLiveActivity();
       const nextExercise = updated.exercises.find((exercise) => !exercise.completed);
       setSelectedLoadGrams(Math.round((nextExercise?.exercise.targetAddedWeight ?? 0) * 1000));
       void notificationHaptic().catch(() => undefined);
@@ -208,6 +213,7 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
     { text: 'Continuer', style: 'cancel' },
     { text: 'Abandonner', style: 'destructive', onPress: () => {
       void getDatabase().then((db) => cancelWorkout(db, workoutId)).then(async () => {
+        await refreshRestLiveActivity();
         await syncSportNotificationsSafely();
         router.replace('/(tabs)');
       }).catch(() => setError('La séance n’a pas pu être annulée.'));

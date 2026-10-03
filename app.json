@@ -70,7 +70,12 @@
           }
         }
       ],
-      "expo-widgets"
+      [
+        "expo-widgets",
+        {
+          "enablePushNotifications": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
