@@ -1,0 +1,279 @@
+name: Build unsigned iOS IPA
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    runs-on: xcode-27
+    steps:
+      - name: Checkout commit
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Read app version and build identity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Manual iOS releases must be run from main."
+            exit 1
+          fi
+
+          APP_VERSION="$(node -p 'require("./app.json").expo.version')"
+          BUNDLE_ID="$(node -p 'require("./app.json").expo.ios.bundleIdentifier')"
+          BUILD_NUMBER="$GITHUB_RUN_NUMBER"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+
+          if [[ ! "$APP_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error::Invalid Expo marketing version: $APP_VERSION"
+            exit 1
+          fi
+          if [[ -z "$BUNDLE_ID" ]]; then
+            echo "::error::app.json must define expo.ios.bundleIdentifier."
+            exit 1
+          fi
+
+          IPA_NAME="Sport-${APP_VERSION}-build${BUILD_NUMBER}-${SHORT_SHA}.ipa"
+          RELEASE_TAG="build-${BUILD_NUMBER}-${SHORT_SHA}"
+          RELEASE_TITLE="Sport ${APP_VERSION} — build ${BUILD_NUMBER} — ${SHORT_SHA}"
+
+          {
+            echo "APP_VERSION=$APP_VERSION"
+            echo "BUNDLE_ID=$BUNDLE_ID"
+            echo "BUILD_NUMBER=$BUILD_NUMBER"
+            echo "SHORT_SHA=$SHORT_SHA"
+            echo "IPA_NAME=$IPA_NAME"
+            echo "RELEASE_TAG=$RELEASE_TAG"
+            echo "RELEASE_TITLE=$RELEASE_TITLE"
+          } >> "$GITHUB_ENV"
+
+          echo "Version: $APP_VERSION"
+          echo "Build: $BUILD_NUMBER"
+          echo "Commit: $GITHUB_SHA"
+          echo "Bundle ID: $BUNDLE_ID"
+
+      - name: Verify macOS iOS toolchain
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          pod --version
+          gh --version
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Generate Expo iOS project
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Verify local native module autolinking
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOLVED_MODULES="$RUNNER_TEMP/expo-autolinking-ios.json"
+          npx expo-modules-autolinking resolve --platform apple --project-root . --json > "$RESOLVED_MODULES"
+          node -e '
+            const result = require(process.argv[1]);
+            const module = result.modules.find((entry) => entry.packageName === "sport-vault-file-protection");
+            if (!module) throw new Error("sport-vault-file-protection is missing from Expo autolinking.");
+            if (!module.pods.some((pod) => pod.podName === "SportVaultFileProtection")) {
+              throw new Error("SportVaultFileProtection podspec is missing from Expo autolinking.");
+            }
+            if (!module.modules.some((entry) => entry.class === "SportVaultFileProtectionModule")) {
+              throw new Error("SportVaultFileProtectionModule is missing from Expo autolinking.");
+            }
+          ' "$RESOLVED_MODULES"
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install
+
+      - name: Set generated app version and CI build number
+        shell: bash
+        run: |
+          set -euo pipefail
+          INFO_PLIST="ios/Sport/Info.plist"
+          test -s "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$INFO_PLIST"
+
+      - name: Build unsigned iPhone Release app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DERIVED_DATA="$RUNNER_TEMP/SportDerivedData"
+          xcodebuild \
+            -workspace ios/Sport.xcworkspace \
+            -scheme Sport \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            build \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | tee "$RUNNER_TEMP/xcodebuild.log"
+
+          APP_PATH="$DERIVED_DATA/Build/Products/Release-iphoneos/Sport.app"
+          test -d "$APP_PATH" || {
+            echo "::error::Xcode succeeded but did not produce $APP_PATH"
+            exit 1
+          }
+
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Validate app bundle before packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          INFO_PLIST="$APP_PATH/Info.plist"
+          test -s "$INFO_PLIST" || {
+            echo "::error::Sport.app/Info.plist is missing or empty."
+            exit 1
+          }
+
+          ACTUAL_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST")"
+          ACTUAL_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")"
+          ACTUAL_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")"
+          EXECUTABLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO_PLIST")"
+          EXECUTABLE="$APP_PATH/$EXECUTABLE_NAME"
+
+          test "$ACTUAL_BUNDLE_ID" = "$BUNDLE_ID" || {
+            echo "::error::Expected bundle ID $BUNDLE_ID, got $ACTUAL_BUNDLE_ID"
+            exit 1
+          }
+          test "$ACTUAL_VERSION" = "$APP_VERSION"
+          test "$ACTUAL_BUILD" = "$BUILD_NUMBER"
+          test -x "$EXECUTABLE"
+          /usr/bin/lipo -verify_arch arm64 "$EXECUTABLE"
+          test ! -e "$APP_PATH/embedded.mobileprovision"
+          test ! -e "$APP_PATH/_CodeSignature"
+
+          SIGNATURE_OUTPUT="$(/usr/bin/codesign --display --verbose=2 "$APP_PATH" 2>&1 || true)"
+          if ! grep -q 'code object is not signed at all' <<< "$SIGNATURE_OUTPUT"; then
+            echo "::error::Could not confirm that Sport.app is unsigned."
+            echo "$SIGNATURE_OUTPUT"
+            exit 1
+          fi
+
+          echo "Validated $ACTUAL_BUNDLE_ID ($ACTUAL_VERSION, build $ACTUAL_BUILD), arm64, unsigned."
+
+      - name: Package and verify IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACKAGE_ROOT="$RUNNER_TEMP/SportIpaPackage"
+          IPA_PATH="$RUNNER_TEMP/$IPA_NAME"
+          EXTRACT_ROOT="$RUNNER_TEMP/SportIpaVerify"
+          rm -rf "$PACKAGE_ROOT" "$EXTRACT_ROOT" "$IPA_PATH"
+          mkdir -p "$PACKAGE_ROOT/Payload" "$EXTRACT_ROOT"
+          ditto "$APP_PATH" "$PACKAGE_ROOT/Payload/Sport.app"
+
+          (
+            cd "$PACKAGE_ROOT"
+            /usr/bin/zip -X -qry "$IPA_PATH" Payload
+          )
+
+          test -s "$IPA_PATH" || {
+            echo "::error::IPA file is missing or empty."
+            exit 1
+          }
+          /usr/bin/unzip -t "$IPA_PATH"
+          /usr/bin/unzip -q "$IPA_PATH" -d "$EXTRACT_ROOT"
+
+          PACKAGED_APP="$EXTRACT_ROOT/Payload/Sport.app"
+          PACKAGED_INFO="$PACKAGED_APP/Info.plist"
+          PACKAGED_EXECUTABLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PACKAGED_INFO")"
+          PACKAGED_EXECUTABLE="$PACKAGED_APP/$PACKAGED_EXECUTABLE_NAME"
+
+          test -d "$PACKAGED_APP"
+          test -s "$PACKAGED_INFO"
+          test "$(find "$EXTRACT_ROOT/Payload" -maxdepth 1 -type d -name '*.app' | wc -l | tr -d ' ')" = "1"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$PACKAGED_INFO")" = "APPL"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PACKAGED_INFO")" = "$BUNDLE_ID"
+          test -x "$PACKAGED_EXECUTABLE"
+          /usr/bin/lipo -verify_arch arm64 "$PACKAGED_EXECUTABLE"
+          test ! -e "$PACKAGED_APP/embedded.mobileprovision"
+          test ! -e "$PACKAGED_APP/_CodeSignature"
+          grep -Fxq 'Payload/Sport.app/Info.plist' < <(/usr/bin/unzip -Z1 "$IPA_PATH")
+
+          SIGNATURE_OUTPUT="$(/usr/bin/codesign --display --verbose=2 "$PACKAGED_APP" 2>&1 || true)"
+          if ! grep -q 'code object is not signed at all' <<< "$SIGNATURE_OUTPUT"; then
+            echo "::error::The packaged app is not confirmed unsigned."
+            echo "$SIGNATURE_OUTPUT"
+            exit 1
+          fi
+
+          echo "IPA_PATH=$IPA_PATH" >> "$GITHUB_ENV"
+          echo "Created and verified $IPA_NAME"
+
+      - name: Upload Actions artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Sport-IPA
+          path: ${{ runner.temp }}/${{ env.IPA_NAME }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create immutable prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EXISTING_TAG="$(git ls-remote --refs origin "refs/tags/$RELEASE_TAG")"
+          if [[ -n "$EXISTING_TAG" ]]; then
+            echo "::error::Refusing to reuse existing tag $RELEASE_TAG"
+            exit 1
+          fi
+
+          RELEASE_NOTES="$(cat <<EOF
+          Unsigned iOS device build for SideStore.
+
+          Commit: https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}
+          Build number: ${BUILD_NUMBER}
+          Bundle ID: ${BUNDLE_ID}
+
+          SideStore must sign this IPA for the target device before installation.
+          EOF
+          )"
+
+          gh release create "$RELEASE_TAG" "$IPA_PATH" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TITLE" \
+            --notes "$RELEASE_NOTES" \
+            --prerelease
+
+          RELEASE_INFO="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isPrerelease,assets)"
+          node -e '
+            const release = JSON.parse(process.argv[1]);
+            const expectedTag = process.argv[2];
+            const expectedAsset = process.argv[3];
+            if (release.tagName !== expectedTag || release.isPrerelease !== true) process.exit(1);
+            if (!release.assets.some((asset) => asset.name === expectedAsset)) process.exit(1);
+          ' "$RELEASE_INFO" "$RELEASE_TAG" "$IPA_NAME"
