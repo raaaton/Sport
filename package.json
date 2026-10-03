@@ -48,6 +48,7 @@
     "android": "expo start --android --go",
     "ios": "expo start --ios --go",
     "web": "expo start --web",
+    "postinstall": "node scripts/apply-expo-widgets-text-modifier-fix.mjs",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
