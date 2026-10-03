@@ -4,11 +4,12 @@ import { colors, spacing } from '@/shared/theme/tokens';
 import { useColorScheme } from '@/shared/theme/useColorScheme';
 import { AppText } from '@/shared/ui/AppText';
 import type { WorkoutExercise } from '../domain/models';
+import { formatRecordedLoad } from '@/features/weights/domain/weightSystem';
 import type { ProgressionAssessment } from '../domain/progressionEngine';
 
 function summarize(exercise: WorkoutExercise): string {
   return exercise.sets.map((set) => {
-    const load = set.addedWeight !== null && set.addedWeight > 0 ? `+${set.addedWeight} kg` : 'poids du corps';
+    const load = formatRecordedLoad(set.addedWeight, set.addedWeightGrams).toLocaleLowerCase('fr-FR');
     if (set.reps !== null) return `${set.reps} reps · ${load}`;
     return `${set.durationSeconds ?? 0} s · ${load}`;
   }).join('   ·   ');

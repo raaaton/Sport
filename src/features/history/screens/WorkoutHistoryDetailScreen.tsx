@@ -13,6 +13,7 @@ import { deleteCompletedWorkout } from '../data/historyRepository';
 import { formatHistoryDate, formatLoads } from '../domain/historyPresentation';
 import type { WorkoutExercise, WorkoutSession } from '@/features/workout/domain/models';
 import { getWorkout } from '@/features/workout/data/workoutRepository';
+import { formatLoadComposition } from '@/features/weights/domain/weightSystem';
 
 type Props = { workoutId: string };
 
@@ -35,6 +36,15 @@ function ExerciseHistoryDetail({ exercise, last }: { exercise: WorkoutExercise; 
         <AppText variant="caption" colorRole="tertiary">Lest</AppText>
         <AppText variant="subheadline">{formatLoads(exercise)}</AppText>
       </View>
+      {exercise.sets.some((set) => set.loadComposition?.length) ? (
+        <View style={styles.measure}>
+          <AppText variant="caption" colorRole="tertiary">Composition enregistrée</AppText>
+          {exercise.sets.map((set) => {
+            const composition = formatLoadComposition(set.loadComposition);
+            return composition ? <AppText key={set.id} variant="footnote" colorRole="secondary">Série {set.setNumber} · {composition}</AppText> : null;
+          })}
+        </View>
+      ) : null}
       <View style={styles.measure}>
         <AppText variant="caption" colorRole="tertiary">Ressenti de l’exercice</AppText>
         <AppText variant="subheadline">{exercise.feeling === null ? '—' : `${exercise.feeling}/10`}</AppText>

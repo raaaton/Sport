@@ -84,6 +84,11 @@ export function formatLoad(grams: number): string {
   return grams === 0 ? 'Poids du corps' : `+${formatKilograms(grams)} kg`;
 }
 
+export function formatRecordedLoad(addedWeight: number | null, addedWeightGrams?: number | null): string {
+  const grams = addedWeightGrams ?? (addedWeight === null ? 0 : Math.round(addedWeight * 1000));
+  return formatLoad(grams);
+}
+
 export function formatLoadComposition(composition: WeightComponentSnapshot[] | null | undefined): string | null {
   return composition?.length ? composition.map((item) => item.name).join(' + ') : null;
 }

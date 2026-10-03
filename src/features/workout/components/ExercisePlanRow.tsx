@@ -6,7 +6,7 @@ import { AppSymbol } from '@/shared/ui/AppSymbol';
 import { AppText } from '@/shared/ui/AppText';
 import type { Exercise, PreviousPerformance } from '../domain/models';
 import type { ProgressionAssessment } from '../domain/progressionEngine';
-import { formatLoad, type LoadProgressionAssessment } from '@/features/weights/domain/weightSystem';
+import { formatLoad, formatRecordedLoad, type LoadProgressionAssessment } from '@/features/weights/domain/weightSystem';
 
 function objective(exercise: Exercise): string {
   if (exercise.trackingType === 'duration') {
@@ -23,10 +23,10 @@ function previousSummary(performance: PreviousPerformance): string {
   const sets = values.every((value) => value === first)
     ? `${values.length} × ${first}${timeBased ? ' s' : ''}`
     : values.map((value) => `${value}${timeBased ? ' s' : ''}`).join(' · ');
-  const weights = performance.sets.map((set) => set.addedWeight);
+  const weights = performance.sets.map((set) => set.addedWeightGrams ?? (set.addedWeight === null ? 0 : Math.round(set.addedWeight * 1000)));
   const load = weights.every((weight) => weight === weights[0])
-    ? weights[0] === null || weights[0] === 0 ? 'poids du corps' : `+${weights[0]} kg`
-    : weights.map((weight) => weight && weight > 0 ? `+${weight} kg` : 'poids du corps').join(' / ');
+    ? formatRecordedLoad(performance.sets[0].addedWeight, performance.sets[0].addedWeightGrams).toLocaleLowerCase('fr-FR')
+    : performance.sets.map((set) => formatRecordedLoad(set.addedWeight, set.addedWeightGrams).replace('Poids du corps', 'poids du corps')).join(' / ');
   return `${sets} · ${load}${performance.feeling === null ? '' : ` · ${performance.feeling}/10`}`;
 }
 

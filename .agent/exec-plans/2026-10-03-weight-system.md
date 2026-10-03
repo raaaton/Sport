@@ -22,7 +22,7 @@ Manage the fixed 3.000 kg base bag and user-owned weighted objects in SQLite, ge
 2. Add schema v4 and idempotent equipment seed; add integer-gram/snapshot set persistence and repository operations for reading/adding/editing/toggling/deleting inventory; implement pure combination generation, load formatting, and progression-to-next-available-load assessment; add SQLite/domain tests.
 3. Integrate the composed assessment into Today and workout preparation, showing concrete maintain/increase/no-higher targets without changing eligibility; add focused recommendation tests.
 4. Replace workout's free-text load field with a fast native load picker, persist selection snapshots per set, show prior set load and composition where useful, and keep historical manually entered values untouched.
-5. Replace Settings > Lest placeholder with inventory management and available-combinations preview; show saved composition in history details while keeping rows concise. Document the user-facing design/data behavior.
+5. Replace Settings > Lest placeholder with inventory management and available-combinations preview. Show saved composition in history details while keeping rows concise. Document the user-facing design/data behavior.
 6. Run the requested TypeScript, lint, full tests, Expo dependency check, iOS export, and whitespace checks. Report that physical iPhone testing remains manual.
 
 ## Files in scope
@@ -59,7 +59,8 @@ Manage the fixed 3.000 kg base bag and user-owned weighted objects in SQLite, ge
 - [x] Read project/product/design/plan guidance, the stage 4 progression and stage 5 History plans, current SQLite schema/progression engine, Today, workout, History, Settings placeholder, and shared controls.
 - [x] Implement schema/inventory/combinations/snapshots and tests.
 - [x] Integrate concrete next-load assessment into Today and preparation.
-- [ ] Implement Settings management, workout selector, and History composition display.
+- [x] Implement workout selector and History composition display.
+- [ ] Implement Settings management and available-load preview.
 - [ ] Run all requested checks and update final implementation notes.
 
 ## Implementation notes
@@ -68,3 +69,4 @@ Manage the fixed 3.000 kg base bag and user-owned weighted objects in SQLite, ge
 - Current free numeric workout field is validated as a number but has no inventory integration. The rest/workout state machine and set progression remain unchanged; only the set load input and persistence payload will change.
 - The first domain test pass caught an omitted bag-only combination and a nullable TypeScript value at the insert boundary; both were fixed before committing this layer. Combination generation explicitly includes bodyweight and the base bag, then all unique bag-plus-object subsets.
 - Today and preparation now call the same pure load-aware progression assessment used later by the workout picker. Eligibility remains delegated to the existing progression engine; these screens show the selected concrete target and explain when no heavier available load exists.
+- The workout load input is a one-tap native page sheet backed by available combinations; each saved set carries both grams and a frozen composition snapshot. History detail exposes those snapshots, while existing performance values use their stored grams for stable display.

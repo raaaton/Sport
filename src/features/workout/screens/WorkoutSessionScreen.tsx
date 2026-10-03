@@ -21,6 +21,9 @@ import { PrimaryAction } from '../components/PrimaryAction';
 import { RestTimerController } from '../components/RestTimerController';
 import { getRestTimerAfterSet, transitionPersistedRestTimer } from '../data/restTimerRepository';
 import { WorkoutCompletionScreen } from './WorkoutCompletionScreen';
+import { getAvailableLoads } from '@/features/weights/data/weightRepository';
+import { assessAvailableLoadProgression, formatLoad, formatRecordedLoad, type AvailableLoad } from '@/features/weights/domain/weightSystem';
+import { LoadPicker } from '@/features/weights/components/LoadPicker';
 
 type Props = { workoutId: string };
 
@@ -35,13 +38,11 @@ function performanceSummary(performance: PreviousPerformance): string {
   const values = performance.sets.map((set) => set.reps ?? set.durationSeconds ?? 0);
   const first = values[0];
   const workload = values.every((value) => value === first) ? `${values.length} × ${first}${performance.sets[0].durationSeconds !== null ? ' s' : ''}` : values.map((value) => `${value}${performance.sets[0].durationSeconds !== null ? ' s' : ''}`).join(' · ');
-  const weights = performance.sets.map((set) => set.addedWeight);
-  const sameWeight = weights.every((weight) => weight === weights[0]);
-  const weight = sameWeight && weights[0] !== null && weights[0] > 0
-    ? ` · +${weights[0]} kg`
-    : weights.every((item) => item === null || item === 0)
-      ? ' · poids du corps'
-      : ` · ${weights.map((item) => item && item > 0 ? `+${item} kg` : 'poids du corps').join(' / ')}`;
+  const weights = performance.sets.map((set) => set.addedWeightGrams ?? (set.addedWeight === null ? 0 : Math.round(set.addedWeight * 1000)));
+  const sameWeight = weights.every((item) => item === weights[0]);
+  const weight = sameWeight
+    ? ` · ${formatRecordedLoad(performance.sets[0].addedWeight, performance.sets[0].addedWeightGrams).toLocaleLowerCase('fr-FR')}`
+    : ` · ${performance.sets.map((set) => formatRecordedLoad(set.addedWeight, set.addedWeightGrams).replace('Poids du corps', 'poids du corps')).join(' / ')}`;
   return `${workload}${weight}${performance.feeling === null ? '' : ` · ${performance.feeling}/10`}`;
 }
 
@@ -52,14 +53,14 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
   const [restEntry, setRestEntry] = useState<{ exerciseId: string; timer: RestTimer | null } | null>(null);
   const [previous, setPrevious] = useState<{ exerciseId: string; performance: PreviousPerformance } | null>(null);
   const [value, setValue] = useState('');
-  const [weight, setWeight] = useState('');
+  const [availableLoads, setAvailableLoads] = useState<AvailableLoad[]>([]);
+  const [selectedLoadGrams, setSelectedLoadGrams] = useState(0);
   const [feeling, setFeeling] = useState('8');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const actionInFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [valueError, setValueError] = useState<string | null>(null);
-  const [weightError, setWeightError] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const keyboardLayoutMode = useRef(false);
 
@@ -85,16 +86,17 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
     void (async () => {
       try {
         const db = await getDatabase();
-        const result = await getWorkout(db, workoutId);
+        const [result, loads] = await Promise.all([getWorkout(db, workoutId), getAvailableLoads(db)]);
         if (!result) throw new Error('Cette séance est introuvable dans la base locale.');
         const timer = await currentPersistedRest(db, result);
         if (mounted) {
           setSession(result);
+          setAvailableLoads(loads);
           setRestEntry(timer ? { exerciseId: timer.workoutExerciseId, timer } : null);
           setWorkflowState(stateFromSession(result, timer));
           const currentExercise = result.exercises.find((exercise) => !exercise.completed);
-          const lastSetWeight = currentExercise?.sets.at(-1)?.addedWeight;
-          setWeight(lastSetWeight !== null && lastSetWeight !== undefined ? String(lastSetWeight) : currentExercise?.exercise.targetAddedWeight?.toString() ?? '');
+          const lastSet = currentExercise?.sets.at(-1);
+          setSelectedLoadGrams(lastSet?.addedWeightGrams ?? Math.round((lastSet?.addedWeight ?? currentExercise?.exercise.targetAddedWeight ?? 0) * 1000));
         }
       } catch (cause) {
         if (mounted) setError(cause instanceof Error ? cause.message : 'La séance n’a pas pu être chargée.');
@@ -107,16 +109,22 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
 
   const current = session?.exercises.find((exercise) => !exercise.completed) ?? null;
   const currentExerciseId = current?.exercise.id;
+  const currentSetCount = current?.sets.length;
   useEffect(() => {
     let mounted = true;
-    if (!currentExerciseId) return () => { mounted = false; };
+    if (!currentExerciseId || !current || availableLoads.length === 0) return () => { mounted = false; };
     void getDatabase().then((db) => getLastPerformance(db, currentExerciseId)).then((result) => {
-      if (mounted && result) setPrevious({ exerciseId: currentExerciseId, performance: result });
+      if (mounted) {
+        setPrevious(result ? { exerciseId: currentExerciseId, performance: result } : null);
+        if (currentSetCount === 0) {
+          setSelectedLoadGrams(assessAvailableLoadProgression(current.exercise, result, availableLoads).targetLoadGrams);
+        }
+      }
     }).catch(() => {
       // Previous performance is optional; the session itself remains usable.
     });
     return () => { mounted = false; };
-  }, [currentExerciseId]);
+  }, [availableLoads, current, currentExerciseId, currentSetCount]);
 
   const restTimer = restEntry && current && restEntry.exerciseId === current.id ? restEntry.timer : null;
   const activeRestTimer = restTimer && isActiveRestTimer(restTimer.state) ? restTimer : null;
@@ -148,19 +156,23 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
 
   const saveSet = async () => {
     if (!session || !current || actionInFlight.current) return;
-    const inputErrors = validateSetEntry(value, weight, current.exercise);
+    const selectedLoad = availableLoads.find((load) => load.addedWeightGrams === selectedLoadGrams);
+    if (!selectedLoad) {
+      setError('Cette charge n’est plus disponible. Choisissez-en une autre.');
+      return;
+    }
+    const inputErrors = validateSetEntry(value, String(selectedLoadGrams / 1000), current.exercise);
     setValueError(inputErrors.value);
-    setWeightError(inputErrors.weight);
     if (inputErrors.value || inputErrors.weight) return;
     actionInFlight.current = true;
     setBusy(true); setError(null);
     try {
       const db = await getDatabase();
-      const recorded = await completeSet(db, { workoutId: session.id, workoutExerciseId: current.id, exercise: current.exercise, value, weight, idFactory: () => Crypto.randomUUID() });
+      const recorded = await completeSet(db, { workoutId: session.id, workoutExerciseId: current.id, exercise: current.exercise, value, load: selectedLoad, idFactory: () => Crypto.randomUUID() });
       const { set: savedSet } = recorded;
       setValue('');
-      setWeight(savedSet.addedWeight !== null ? String(savedSet.addedWeight) : '');
-      setValueError(null); setWeightError(null);
+      setSelectedLoadGrams(savedSet.addedWeightGrams ?? Math.round((savedSet.addedWeight ?? 0) * 1000));
+      setValueError(null);
       const updated = await getWorkout(db, session.id);
       if (!updated) throw new Error('La séance ne peut pas être relue après l’enregistrement.');
       const timer = recorded.restTimer ?? await currentPersistedRest(db, updated);
@@ -183,7 +195,7 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
       setSession(updated); setWorkflowState(stateFromSession(updated));
       setRestEntry(null);
       const nextExercise = updated.exercises.find((exercise) => !exercise.completed);
-      setWeight(nextExercise?.exercise.targetAddedWeight?.toString() ?? '');
+      setSelectedLoadGrams(Math.round((nextExercise?.exercise.targetAddedWeight ?? 0) * 1000));
       void notificationHaptic().catch(() => undefined);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'L’exercice n’a pas pu être terminé.');
@@ -204,8 +216,11 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
 
   const setsComplete = current.sets.length >= current.exercise.targetSets;
   const previousAssessment = previous?.exerciseId === current.exercise.id
-    ? assessProgression(current.exercise, previous.performance)
+    ? assessAvailableLoadProgression(current.exercise, previous.performance, availableLoads)
     : null;
+  const targetLoadGrams = previousAssessment?.targetLoadGrams ?? (current.exercise.targetAddedWeight === null
+    ? selectedLoadGrams
+    : Math.round(current.exercise.targetAddedWeight * 1000));
   const normalizedFeeling = feeling.trim().replace(',', '.');
   const feelingNumber = normalizedFeeling ? Number(normalizedFeeling) : Number.NaN;
   const completionAssessment = setsComplete
@@ -239,12 +254,11 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
                 <Pressable accessibilityRole="button" accessibilityLabel="Abandonner la séance" onPress={endWorkout} hitSlop={12} style={styles.close}><AppSymbol name="xmark" size={19} color={palette.secondary} /></Pressable>
               </View>
               <AppText variant="headline" colorRole="secondary">{target}{current.exercise.trackingType === 'reps' ? ' reps' : ''}</AppText>
-              {current.exercise.targetAddedWeight !== null ? <AppText variant="subheadline" colorRole="secondary">{current.exercise.targetAddedWeight === 0 ? 'Poids du corps' : `Objectif : +${current.exercise.targetAddedWeight} kg`}</AppText> : null}
-              {previousAssessment?.status === 'increase_load_recommended' ? (
+              <AppText variant="subheadline" colorRole="secondary">Objectif : {formatLoad(targetLoadGrams)}</AppText>
+              {previousAssessment?.progression.status === 'increase_load_recommended' ? (
                 <View style={styles.recommendation}>
-                  {current.exercise.targetAddedWeight === null ? <AppText variant="subheadline">Objectif : augmenter le lest</AppText> : null}
-                  <View style={styles.recommendationHeading}><AppSymbol name="arrow.up" size={13} color={palette.accent} /><AppText variant="footnote">Augmentation du lest recommandée</AppText></View>
-                  <AppText variant="caption" colorRole="tertiary">La charge exacte dépendra du matériel disponible.</AppText>
+                  <View style={styles.recommendationHeading}><AppSymbol name="arrow.up" size={13} color={palette.accent} /><AppText variant="footnote">{previousAssessment.noHigherLoadAvailable ? 'Objectif atteint' : 'Augmentation du lest recommandée'}</AppText></View>
+                  {previousAssessment.noHigherLoadAvailable ? <AppText variant="caption" colorRole="tertiary">Aucune charge supérieure disponible avec votre matériel.</AppText> : null}
                 </View>
               ) : null}
               <View style={[styles.progressRow, { borderColor: palette.separator }]}>
@@ -266,7 +280,7 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
             <AppText variant="headline">Série {current.sets.length + 1}</AppText>
             {restEntry?.timer?.state === 'finished' ? <AppText variant="subheadline" colorRole="secondary">Repos terminé · à vous pour la série {current.sets.length + 1}</AppText> : null}
             <NumericField label={current.exercise.trackingType === 'reps' ? 'Répétitions' : 'Durée'} placeholder="0" suffix={current.exercise.trackingType === 'reps' ? 'reps' : 'secondes'} value={value} error={valueError} onChangeText={(text) => { setValue(text); setValueError(null); }} />
-            <NumericField label="Lest (facultatif)" placeholder="0" suffix="kg" value={weight} decimal error={weightError} onChangeText={(text) => { setWeight(text); setWeightError(null); }} />
+            <LoadPicker loads={availableLoads} selectedGrams={selectedLoadGrams} onSelect={(load) => { setSelectedLoadGrams(load.addedWeightGrams); }} disabled={busy} />
             {error ? <AppText colorRole="destructive" accessibilityRole="alert">{error}</AppText> : null}
             <PrimaryAction title="Valider la série" onPress={() => { void saveSet(); }} busy={busy} />
           </View>
