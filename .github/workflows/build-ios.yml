@@ -50,9 +50,13 @@ jobs:
           npm ci
           grep -Fq 'SportRestLockScreen(propsJSON: context.state.props)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'Text(timerInterval: Date.now...deadline' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
-          grep -A1 -F 'case "compactLeading":' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift | grep -Fq 'EmptyView()'
-          grep -Fq 'HStack(spacing: 6)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
-          grep -Fq '.activityBackgroundTint(SportActivityStyle.lockScreenBackground)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq '.contentMargins(.horizontal, 2, for: .compactLeading)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'SportRestClock(props: props, size: 14)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'lockScreenForeground' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          if grep -Fq '.activityBackgroundTint(SportActivityStyle.lockScreenBackground)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift; then
+            echo "::error::The Sport-specific Lock Screen tint overrides the system background."
+            exit 1
+          fi
           grep -Fq '.keylineTint(SportActivityStyle.islandKeyline)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           npx expo prebuild --platform ios --no-install
 
@@ -138,28 +142,34 @@ jobs:
           grep -q 'code object is not signed at all' <<< "$SIGNATURE_OUTPUT"
 
           PACKAGE="$RUNNER_TEMP/SportIPAPackage"
-          VERIFY="$RUNNER_TEMP/SportIPAVerify"
           IPA_PATH="$RUNNER_TEMP/$IPA_NAME"
-          mkdir -p "$PACKAGE/Payload" "$VERIFY"
+          mkdir -p "$PACKAGE/Payload"
           ditto "$APP_PATH" "$PACKAGE/Payload/Sport.app"
           (cd "$PACKAGE" && /usr/bin/zip -X -qry "$IPA_PATH" Payload)
           test -s "$IPA_PATH"
           /usr/bin/unzip -t "$IPA_PATH"
-          /usr/bin/unzip -q "$IPA_PATH" -d "$VERIFY"
-          PACKAGED_APP="$VERIFY/Payload/Sport.app"
-          test -s "$PACKAGED_APP/Info.plist"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$PACKAGED_APP/Info.plist")" = "APPL"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PACKAGED_APP/Info.plist")" = "$BUNDLE_ID"
-          PACKAGED_EXTENSION="$PACKAGED_APP/PlugIns/ExpoWidgetsTarget.appex"
-          test -s "$PACKAGED_EXTENSION/Info.plist"
-          test -s "$PACKAGED_EXTENSION/ExpoWidgets.bundle/ExpoWidgets.bundle"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PACKAGED_EXTENSION/Info.plist")" = "$BUNDLE_ID.ExpoWidgetsTarget"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PACKAGED_EXTENSION/Info.plist")" = "$APP_VERSION"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PACKAGED_EXTENSION/Info.plist")" = "$BUILD_NUMBER"
-          test ! -e "$PACKAGED_EXTENSION/embedded.mobileprovision"
-          test ! -e "$PACKAGED_EXTENSION/_CodeSignature"
-          test ! -e "$PACKAGED_APP/embedded.mobileprovision"
-          test ! -e "$PACKAGED_APP/_CodeSignature"
+          ZIP_CONTENTS="$RUNNER_TEMP/SportIPAContents.txt"
+          /usr/bin/unzip -Z1 "$IPA_PATH" > "$ZIP_CONTENTS"
+          grep -Fqx 'Payload/Sport.app/Info.plist' "$ZIP_CONTENTS"
+          grep -Fqx 'Payload/Sport.app/PlugIns/ExpoWidgetsTarget.appex/Info.plist' "$ZIP_CONTENTS"
+          grep -Fqx 'Payload/Sport.app/PlugIns/ExpoWidgetsTarget.appex/ExpoWidgets.bundle/ExpoWidgets.bundle' "$ZIP_CONTENTS"
+          if grep -Eq '(^|/)(embedded\.mobileprovision|_CodeSignature)(/|$)' "$ZIP_CONTENTS"; then
+            echo "::error::The IPA contains signing material."
+            exit 1
+          fi
+
+          PACKAGED_APP_INFO="$RUNNER_TEMP/SportPackagedAppInfo.plist"
+          PACKAGED_EXTENSION_INFO="$RUNNER_TEMP/SportPackagedExtensionInfo.plist"
+          /usr/bin/unzip -p "$IPA_PATH" 'Payload/Sport.app/Info.plist' > "$PACKAGED_APP_INFO"
+          /usr/bin/unzip -p "$IPA_PATH" 'Payload/Sport.app/PlugIns/ExpoWidgetsTarget.appex/Info.plist' > "$PACKAGED_EXTENSION_INFO"
+          test -s "$PACKAGED_APP_INFO" && test -s "$PACKAGED_EXTENSION_INFO"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$PACKAGED_APP_INFO")" = "APPL"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PACKAGED_APP_INFO")" = "$BUNDLE_ID"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PACKAGED_APP_INFO")" = "$APP_VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PACKAGED_APP_INFO")" = "$BUILD_NUMBER"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PACKAGED_EXTENSION_INFO")" = "$BUNDLE_ID.ExpoWidgetsTarget"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PACKAGED_EXTENSION_INFO")" = "$APP_VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PACKAGED_EXTENSION_INFO")" = "$BUILD_NUMBER"
           echo "IPA_PATH=$IPA_PATH" >> "$GITHUB_ENV"
 
       - name: Publish GitHub release
