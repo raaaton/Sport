@@ -23,10 +23,10 @@ GitHub Actions (runner macOS / Xcode)
         ↓
 Expo prebuild → CocoaPods → Release iphoneos non signée
         ↓
-validation → artifact Sport-IPA → GitHub prerelease
+validation → GitHub Release normale avec l'IPA jointe
 ```
 
-Le workflow peut aussi être lancé manuellement dans GitHub : **Actions → Build unsigned iOS IPA → Run workflow**, en sélectionnant `main`. Il utilise `npm ci` et le lockfile du dépôt. Il ne fait pas appel à EAS.
+Le workflow peut aussi être lancé manuellement dans GitHub : **Actions → Build iOS IPA → Run workflow**, en sélectionnant `main`. Il utilise `npm ci` et le lockfile du dépôt. Il ne fait pas appel à EAS.
 
 Le fichier attaché au Release suit cette forme :
 
@@ -34,7 +34,7 @@ Le fichier attaché au Release suit cette forme :
 Sport-1.0.0-build42-a1b2c3d.ipa
 ```
 
-La version marketing vient de `app.json`, le build number est le numéro de run GitHub, et le suffixe est le hash court du commit. Chaque run produit le tag `build-<numéro>-<hash>` et un prerelease distinct. L'Actions artifact `Sport-IPA` est conservé 14 jours en plus de l'asset du Release.
+La version marketing vient de `app.json`, le build number est le numéro de run GitHub, et le suffixe est le hash court du commit. Chaque run produit le tag `build-<numéro>-<hash>` et une Release normale, marquée comme la plus récente. Aucun artifact secondaire n'est téléversé.
 
 ### Signature et compte Apple
 
@@ -44,7 +44,7 @@ Cette IPA est **non signée**. Elle n'est pas directement installable par iOS en
 
 ### Installer depuis SideStore
 
-1. Dans **Releases** du dépôt GitHub, ouvrir le prerelease voulu et télécharger son fichier `.ipa` sur l'iPhone. L'Actions artifact `Sport-IPA` est aussi disponible depuis la page du run, mais le Release est la source habituelle.
+1. Dans **Releases** du dépôt GitHub, ouvrir la Release voulue et télécharger son fichier `.ipa` sur l'iPhone.
 2. Ouvrir/importer l'IPA dans SideStore (depuis Fichiers ou le partage iOS), puis lancer l'installation. SideStore signe l'app avec le compte Apple configuré dans SideStore.
 3. Si SideStore n'est pas encore installé et configuré, suivre son [guide officiel d'installation](https://docs.sidestore.io/docs/installation/install) avant d'importer Sport.
 

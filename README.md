@@ -36,7 +36,7 @@ npx expo start --go
 
 ## Build iOS pour SideStore
 
-Chaque push vers `main` déclenche un build iOS non signé sur GitHub Actions et publie l'IPA comme asset d'un prerelease. SideStore est chargé de signer l'IPA pour l'iPhone. Voir [docs/BUILD.md](docs/BUILD.md) pour le workflow, le versioning et les étapes d'installation.
+Chaque push vers `main` déclenche un build iOS non signé sur GitHub Actions et publie l'IPA comme asset d'une Release GitHub normale. SideStore est chargé de signer l'IPA pour l'iPhone. Voir [docs/BUILD.md](docs/BUILD.md) pour le workflow, le versioning et les étapes d'installation.
 
 Pour lancer la version web :
 
