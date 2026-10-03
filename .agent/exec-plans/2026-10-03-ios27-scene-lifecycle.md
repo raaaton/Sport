@@ -33,7 +33,8 @@ Linux cannot run Xcode or launch an iOS app. Expo prebuild can prove the require
 ## Progress
 
 - [x] Identify the crash from the device report and confirm Expo SDK 57's supported scene lifecycle plugin/config.
-- [ ] Configure and verify Expo scene lifecycle generation.
-- [ ] Simplify and switch GitHub publishing to normal latest Releases.
-- [ ] Run local checks and commit each coherent change separately.
+- [x] Configure and verify Expo scene lifecycle generation with `expo-build-properties@~57.0.22`; local prebuild now declares `EXExpoAppSceneDelegate`, conforms AppDelegate to `ExpoReactNativeFactoryProvider`, and removes legacy window startup.
+- [x] Simplify GitHub Actions and switch publishing to normal latest Releases; workflow now checks scene support before CocoaPods and has no duplicate Actions artifact.
+- [x] Run local checks: TypeScript, lint, all 7 test files, Expo install check, iOS JS export, prebuild-generated scene assertions, workflow YAML/Bash checks, and `git diff --check` pass. The Expo check used the local bundled version map because networking is disabled.
+- [ ] Commit the scene lifecycle fix and the iOS 27 CI guard.
 - [ ] User validates the rebuilt IPA on iPhone.

@@ -64,6 +64,13 @@ jobs:
               throw new Error("The local vault module is not correctly autolinked.");
             }
           ' "$RESOLVED_MODULES"
+          SCENE_DELEGATE="$(/usr/libexec/PlistBuddy -c 'Print :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName' ios/Sport/Info.plist)"
+          test "$SCENE_DELEGATE" = "EXExpoAppSceneDelegate"
+          grep -q 'ExpoReactNativeFactoryProvider' ios/Sport/AppDelegate.swift
+          if grep -Eq 'window = UIWindow\(frame: UIScreen\.main\.bounds\)|factory\.startReactNative\(' ios/Sport/AppDelegate.swift; then
+            echo "::error::Expo scene support left the legacy AppDelegate startup in place."
+            exit 1
+          fi
           (cd ios && pod install)
 
       - name: Build, verify, and package unsigned IPA
