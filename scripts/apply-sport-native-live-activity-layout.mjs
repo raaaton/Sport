@@ -51,12 +51,8 @@ const bannerContentBefore = `      if let url = context.attributes.url.flatMap(U
       }`;
 const bannerContentAfter = `      if let url = context.attributes.url.flatMap(URL.init(string:)) {
         banner.widgetURL(url)
-          .activityBackgroundTint(SportActivityStyle.lockScreenBackground)
-          .activitySystemActionForegroundColor(Color.primary)
       } else {
         banner
-          .activityBackgroundTint(SportActivityStyle.lockScreenBackground)
-          .activitySystemActionForegroundColor(Color.primary)
       }`;
 
 if (!source.includes('SportRestIslandSection(propsJSON: context.state.props')) {
@@ -66,11 +62,19 @@ if (!source.includes('SportRestIslandSection(propsJSON: context.state.props')) {
   source = source.replace(sectionBefore, sectionAfter).replace(bannerBefore, bannerAfter);
 }
 
-if (!source.includes('.activityBackgroundTint(SportActivityStyle.lockScreenBackground)')) {
-  if (!source.includes(bannerContentBefore)) {
-    throw new Error('Could not locate the expected Lock Screen banner modifiers in expo-widgets.');
-  }
-  source = source.replace(bannerContentBefore, bannerContentAfter);
+const bannerContentWithSportTint = `      if let url = context.attributes.url.flatMap(URL.init(string:)) {
+        banner.widgetURL(url)
+          .activityBackgroundTint(SportActivityStyle.lockScreenBackground)
+          .activitySystemActionForegroundColor(Color.primary)
+      } else {
+        banner
+          .activityBackgroundTint(SportActivityStyle.lockScreenBackground)
+          .activitySystemActionForegroundColor(Color.primary)
+      }`;
+if (source.includes(bannerContentWithSportTint)) {
+  source = source.replace(bannerContentWithSportTint, bannerContentAfter);
+} else if (!source.includes(bannerContentBefore)) {
+  throw new Error('Could not locate the expected Lock Screen banner modifiers in expo-widgets.');
 }
 
 if (!source.includes('.keylineTint(SportActivityStyle.islandKeyline)')) {
@@ -79,23 +83,53 @@ if (!source.includes('.keylineTint(SportActivityStyle.islandKeyline)')) {
     .replace('return island\n', 'return island.keylineTint(SportActivityStyle.islandKeyline)\n');
 }
 
+if (!source.includes('var island = DynamicIsland {')) {
+  if (!source.includes('let island = DynamicIsland {')) {
+    throw new Error('Could not locate the Dynamic Island builder in expo-widgets.');
+  }
+  source = source.replace('let island = DynamicIsland {', 'var island = DynamicIsland {');
+}
+
+const compactIslandMargins = `      if #available(iOS 17.0, *) {
+        if context.state.name == "SportRestActivity" {
+          island = island
+            .contentMargins(.horizontal, 2, for: .compactLeading)
+            .contentMargins(.horizontal, 2, for: .compactTrailing)
+        }
+      }
+`;
+const islandReturns = `      if let url = context.attributes.url.flatMap(URL.init(string:)) {
+        return island.widgetURL(url).keylineTint(SportActivityStyle.islandKeyline)
+      }
+      return island.keylineTint(SportActivityStyle.islandKeyline)`;
+if (!source.includes('.contentMargins(.horizontal, 2, for: .compactLeading)')) {
+  if (!source.includes(islandReturns)) {
+    throw new Error('Could not locate the Dynamic Island return branches to set compact margins.');
+  }
+  source = source.replace(islandReturns, `${compactIslandMargins}${islandReturns}`);
+}
+
 const marker = 'extension WidgetConfiguration {';
 const nativeViews = `
 // SPORT_REST_LIVE_ACTIVITY_NATIVE_VIEWS_BEGIN
 @available(iOS 16.1, *)
 private enum SportActivityStyle {
-  static let lockScreenBackground = Color(uiColor: UIColor { traits in
-    if traits.userInterfaceStyle == .dark {
-      return UIColor(red: 0.055, green: 0.10, blue: 0.17, alpha: 1)
-    }
-    return UIColor(red: 0.91, green: 0.94, blue: 0.985, alpha: 1)
-  })
-
   static let islandKeyline = Color(uiColor: UIColor { traits in
     if traits.userInterfaceStyle == .dark {
       return UIColor(red: 0.04, green: 0.52, blue: 1, alpha: 1)
     }
     return UIColor(red: 0, green: 0.48, blue: 1, alpha: 1)
+  })
+
+  static let lockScreenForeground = Color(uiColor: UIColor { traits in
+    traits.userInterfaceStyle == .dark ? .white : .black
+  })
+
+  static let lockScreenSecondaryForeground = Color(uiColor: UIColor { traits in
+    if traits.userInterfaceStyle == .dark {
+      return UIColor(white: 0.78, alpha: 1)
+    }
+    return UIColor(white: 0.28, alpha: 1)
   })
 }
 
@@ -158,16 +192,10 @@ private struct SportRestIslandSection: View {
     if let props = SportRestProps.decode(propsJSON) {
       switch sectionName {
       case "compactLeading":
-        EmptyView()
+        Text(props.state == "paused" ? "PAUSE" : "REST")
+          .font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
       case "compactTrailing":
-        HStack(spacing: 6) {
-          Text(props.state == "paused" ? "PAUSE" : "REST")
-            .font(.system(size: 11, weight: .bold))
-            .lineLimit(1)
-          SportRestClock(props: props, size: 14)
-        }
-        .foregroundStyle(.white)
-        .fixedSize(horizontal: true, vertical: false)
+        SportRestClock(props: props, size: 14).foregroundStyle(.white)
       case "minimal":
         Text("R").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
       case "expandedLeading":
@@ -182,7 +210,6 @@ private struct SportRestIslandSection: View {
             .font(.caption2.weight(.bold)).foregroundStyle(.white.opacity(0.72))
           SportRestClock(props: props, size: 22).foregroundStyle(.white)
         }
-        .fixedSize(horizontal: true, vertical: false)
       case "expandedBottom":
         EmptyView()
       default:
@@ -202,22 +229,25 @@ private struct SportRestLockScreen: View {
     if let props = SportRestProps.decode(propsJSON) {
       HStack(alignment: .center, spacing: 16) {
         VStack(alignment: .leading, spacing: 4) {
-          Text(props.exerciseName).font(.headline.weight(.semibold)).lineLimit(1).truncationMode(.tail)
+          Text(props.exerciseName).font(.headline.weight(.semibold)).lineLimit(1)
           Text("Prochaine série · \\(props.nextSetNumber)/\\(props.targetSets)")
-            .font(.subheadline).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+            .font(.subheadline).foregroundStyle(SportActivityStyle.lockScreenSecondaryForeground).lineLimit(1)
         }
-        .layoutPriority(1)
         Spacer(minLength: 8)
         VStack(alignment: .trailing, spacing: 3) {
-          Text(props.state == "paused" ? "PAUSE" : "REST").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+          Text(props.state == "paused" ? "PAUSE" : "REST")
+            .font(.caption2.weight(.bold)).foregroundStyle(SportActivityStyle.lockScreenSecondaryForeground)
           SportRestClock(props: props, size: 30)
         }
-        .fixedSize(horizontal: true, vertical: false)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.vertical, 2)
+      .foregroundStyle(SportActivityStyle.lockScreenForeground)
     } else {
-      Text("Repos en cours").font(.headline).frame(maxWidth: .infinity, alignment: .leading)
+      Text("Repos en cours")
+        .font(.headline)
+        .foregroundStyle(SportActivityStyle.lockScreenForeground)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
   }
 }
@@ -245,9 +275,10 @@ if (existingNativeViewsStart !== -1 && existingNativeViewsEnd !== -1) {
 
 if (!source.includes('SportRestLockScreen(propsJSON: context.state.props)') ||
     !source.includes('Text(timerInterval: Date.now...deadline') ||
-    !source.includes('case "compactLeading":\n        EmptyView()') ||
-    !source.includes('HStack(spacing: 6)') ||
-    !source.includes('.activityBackgroundTint(SportActivityStyle.lockScreenBackground)') ||
+    !source.includes('Text(props.state == "paused" ? "PAUSE" : "REST")') ||
+    !source.includes('.contentMargins(.horizontal, 2, for: .compactLeading)') ||
+    !source.includes('lockScreenForeground') ||
+    source.includes('.activityBackgroundTint(SportActivityStyle.lockScreenBackground)') ||
     !source.includes('.keylineTint(SportActivityStyle.islandKeyline)')) {
   throw new Error('The Sport native Live Activity presentation patch was not applied completely.');
 }
