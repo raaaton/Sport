@@ -50,6 +50,12 @@
           "microphonePermission": false
         }
       ],
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Sport enregistre dans Photos la copie que vous choisissez d’exporter depuis le coffre."
+        }
+      ],
       "expo-audio",
       "expo-notifications"
     ],
