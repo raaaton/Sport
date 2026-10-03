@@ -50,7 +50,7 @@ jobs:
           npm ci
           npx expo prebuild --platform ios --no-install
 
-      - name: Install Pods and verify vault module
+      - name: Verify generated Live Activity target and install Pods
         shell: bash
         run: |
           set -euo pipefail
@@ -64,6 +64,14 @@ jobs:
               throw new Error("The local vault module is not correctly autolinked.");
             }
           ' "$RESOLVED_MODULES"
+          INFO_PLIST="ios/Sport/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSSupportsLiveActivities' "$INFO_PLIST" | grep -qx true
+          /usr/libexec/PlistBuddy -c 'Print :NSSupportsLiveActivitiesFrequentUpdates' "$INFO_PLIST" | grep -qx false
+          /usr/libexec/PlistBuddy -c 'Print :ExpoWidgets_EnablePushNotifications' "$INFO_PLIST" | grep -qx false
+          grep -q 'PBXNativeTarget "ExpoWidgetsTarget"' ios/Sport.xcodeproj/project.pbxproj
+          grep -q 'PRODUCT_BUNDLE_IDENTIFIER = "com.raaaton.sport.ExpoWidgetsTarget"' ios/Sport.xcodeproj/project.pbxproj
+          test -s ios/ExpoWidgetsTarget/ExpoWidgetsTarget.entitlements
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.security.application-groups:0' ios/ExpoWidgetsTarget/ExpoWidgetsTarget.entitlements | grep -qx 'group.com.raaaton.sport'
           SCENE_DELEGATE="$(/usr/libexec/PlistBuddy -c 'Print :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName' ios/Sport/Info.plist)"
           test "$SCENE_DELEGATE" = "EXExpoAppSceneDelegate"
           grep -q 'ExpoReactNativeFactoryProvider' ios/Sport/AppDelegate.swift
@@ -80,6 +88,9 @@ jobs:
           INFO_PLIST="ios/Sport/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$INFO_PLIST"
+          EXTENSION_SOURCE_INFO="ios/ExpoWidgetsTarget/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$EXTENSION_SOURCE_INFO"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$EXTENSION_SOURCE_INFO"
 
           DERIVED_DATA="$RUNNER_TEMP/SportDerivedData"
           xcodebuild -quiet \
@@ -101,6 +112,14 @@ jobs:
           APP_PATH="$DERIVED_DATA/Build/Products/Release-iphoneos/Sport.app"
           APP_INFO="$APP_PATH/Info.plist"
           test -d "$APP_PATH" && test -s "$APP_INFO"
+          EXTENSION_PATH="$APP_PATH/PlugIns/ExpoWidgetsTarget.appex"
+          EXTENSION_INFO="$EXTENSION_PATH/Info.plist"
+          test -d "$EXTENSION_PATH" && test -s "$EXTENSION_INFO"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXTENSION_INFO")" = "$BUNDLE_ID.ExpoWidgetsTarget"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$EXTENSION_INFO")" = "$APP_VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$EXTENSION_INFO")" = "$BUILD_NUMBER"
+          test ! -e "$EXTENSION_PATH/embedded.mobileprovision"
+          test ! -e "$EXTENSION_PATH/_CodeSignature"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_INFO")" = "$BUNDLE_ID"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_INFO")" = "$APP_VERSION"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_INFO")" = "$BUILD_NUMBER"
@@ -124,6 +143,13 @@ jobs:
           test -s "$PACKAGED_APP/Info.plist"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$PACKAGED_APP/Info.plist")" = "APPL"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PACKAGED_APP/Info.plist")" = "$BUNDLE_ID"
+          PACKAGED_EXTENSION="$PACKAGED_APP/PlugIns/ExpoWidgetsTarget.appex"
+          test -s "$PACKAGED_EXTENSION/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PACKAGED_EXTENSION/Info.plist")" = "$BUNDLE_ID.ExpoWidgetsTarget"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PACKAGED_EXTENSION/Info.plist")" = "$APP_VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PACKAGED_EXTENSION/Info.plist")" = "$BUILD_NUMBER"
+          test ! -e "$PACKAGED_EXTENSION/embedded.mobileprovision"
+          test ! -e "$PACKAGED_EXTENSION/_CodeSignature"
           test ! -e "$PACKAGED_APP/embedded.mobileprovision"
           test ! -e "$PACKAGED_APP/_CodeSignature"
           echo "IPA_PATH=$IPA_PATH" >> "$GITHUB_ENV"
