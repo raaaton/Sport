@@ -9,7 +9,7 @@ Do not add arbitrary new workout templates, edit exercise definitions, change wo
 ## Context and decisions
 
 - The database has three seeded schedules in `workout_schedules`, each with a unique weekday, active flag and ordered `workout_schedule_exercises`. `Settings > Planning` is only explanatory placeholder text.
-- The current notification preference stores one nullable global workout hour. The user now wants an hour per session. Schema v6 adds nullable `reminder_time_minutes` to each schedule. The migration copies a previously chosen global hour to active schedule rows in minutes; when no old hour was chosen, it leaves the new values unset. No new reminder time is invented.
+- The current notification preference stores one nullable global workout hour. The user now wants an hour per session. Schema v6 adds nullable `reminder_time_minutes` to each schedule. The migration copies a previously chosen global hour to every existing schedule in minutes; when no old hour was chosen, it leaves the new values unset. No new reminder time is invented.
 - Keep the current one-session-per-weekday constraint. The editor moves or deactivates the existing three sessions, preventing accidental collisions. Adding arbitrary new session templates is outside this request.
 - A schedule can be saved with no selected exercises only when disabled. The Today plan and reminder planner already ignore schedules without active assigned exercises.
 - A schedule save atomically updates the schedule row and replaces its ordered exercise links. After commit, the notification service rebuilds only Sport-managed reminder requests from the current DB; historical workouts and their schedule labels are not rewritten.
@@ -53,7 +53,15 @@ Do not add arbitrary new workout templates, edit exercise definitions, change wo
 
 - [x] Read project and design guidance, latest notification plan, SQLite schedule schema, settings routes, notification settings and planner, and workout schedule consumption.
 - [x] Confirm the SDK 57 official SwiftUI DatePicker API and Expo Go support.
-- [ ] Add schema v6 and schedule persistence.
-- [ ] Use individual schedule time in notification planning.
-- [ ] Implement native time selection and the Settings > Planning editor.
-- [ ] Update docs and README; run full verification.
+- [x] Add schema v6 and schedule persistence.
+- [x] Use individual schedule time in notification planning.
+- [x] Implement native time selection and the Settings > Planning editor.
+- [x] Update docs and README; run full verification.
+
+## Implementation notes
+
+- Schema v6 stores nullable reminder minutes on each schedule and photo reminder minutes on notification preferences. It carries the previously configured global workout hour to every existing schedule, preserves the existing photo hour, and leaves times unset if the user had never selected one.
+- The seed now checks a schedule's stable ID before inserting it. Previously, seeding by weekday would have recreated a moved default session when the app reopened.
+- The schedule editor operates on the existing three sessions, with one session per weekday. It supports moving, renaming, activation, exercise selection/order and per-session reminder time; save is transactional and notification resync follows a successful write.
+- `@expo/ui` is the SDK 57 recommended first-party native primitive package, used only for SwiftUI DatePicker on iOS. Its wheel selector is included in Expo Go; a simple text-time fallback is used off iOS.
+- TypeScript, lint, all six test suites, the Expo SDK dependency check, iOS export, and `git diff --check` pass. Dependency validation used Expo's local package map because network access is disabled. An additional web export attempt fails in the existing SQLite web import chain because `expo-sqlite/web/wa-sqlite/wa-sqlite.wasm` is absent; this task does not alter or patch that web-specific setup. Physical iPhone layout and picker behavior remain to be checked.

@@ -43,7 +43,7 @@ Monthly:
 
 * Progress photos on the first day of the month
 
-The schedule must be editable.
+The schedule must be editable. Each session can be moved to another free weekday, disabled, renamed, and composed from the active exercise list in a chosen order. A weekday can contain at most one session in the current model.
 
 ## 4. Initial exercises
 
@@ -178,7 +178,7 @@ The app schedules opt-in local notifications on this device for:
 
 Notification content must never contain private progress-photo information.
 
-Workout reminders are derived from active weekly schedule entries. Since no workout reminder time was defined in the schedule model, reminders stay disabled until the user selects one shared hour in Settings. The app schedules concrete occurrences 28 days ahead and omits any schedule date with an existing workout row, including an active workout, so starting a session suppresses that day's reminder. Changes to notification preferences, schedule, app foreground state, or workout lifecycle trigger a full resynchronization of requests managed by Sport.
+Workout reminders are derived from active weekly schedule entries. Each session stores its own optional reminder time to the minute; an unset time creates no reminder, and no time is invented. The app schedules concrete occurrences 28 days ahead and omits any schedule date with an existing workout row, including an active workout, so starting a session suppresses that day's reminder. Changes to notification preferences, schedule, app foreground state, or workout lifecycle trigger a full resynchronization of requests managed by Sport.
 
 Photo reminders occur on the first day of each month at 06:00 by default, with an editable hour. Notification permission is requested only when the user enables a reminder. A denied iOS permission is not repeatedly requested; Settings explains how to open iOS Settings instead. Notification taps open Today or Progress, never a private photo. While Sport is foregrounded, local reminders may appear as a banner and in Notification Center without sound or badge.
 
