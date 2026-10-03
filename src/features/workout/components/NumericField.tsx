@@ -5,9 +5,9 @@ import { useColorScheme } from '@/shared/theme/useColorScheme';
 import { AppText } from '@/shared/ui/AppText';
 import { useCaptureDynamicScrollOffset } from '@/shared/ui/DynamicScrollView';
 
-type NumericFieldProps = { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; suffix?: string; decimal?: boolean; error?: string | null };
+type NumericFieldProps = { label: string; value: string; onChangeText: (value: string) => void; onFocus?: () => void; placeholder?: string; suffix?: string; decimal?: boolean; error?: string | null };
 
-export function NumericField({ label, value, onChangeText, placeholder, suffix, decimal = false, error }: NumericFieldProps) {
+export function NumericField({ label, value, onChangeText, onFocus, placeholder, suffix, decimal = false, error }: NumericFieldProps) {
   const captureScrollOffset = useCaptureDynamicScrollOffset();
   const colorScheme = useColorScheme();
   const palette = colors[colorScheme];
@@ -19,7 +19,7 @@ export function NumericField({ label, value, onChangeText, placeholder, suffix, 
           accessibilityLabel={label}
           accessibilityHint={error ?? undefined}
           keyboardType={decimal ? 'decimal-pad' : 'number-pad'}
-          onFocus={captureScrollOffset}
+          onFocus={() => { captureScrollOffset(); onFocus?.(); }}
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={palette.tertiary}

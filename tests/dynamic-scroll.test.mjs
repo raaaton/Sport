@@ -64,7 +64,17 @@ test('DynamicScrollView keeps native keyboard insets and restores its saved offs
   assert.match(dynamicScroll, /measureInWindow/);
   assert.match(dynamicScroll, /keyboardOverlap\(viewportFrame, nextFrame\)/);
   const numericField = readFileSync(new URL('../src/features/workout/components/NumericField.tsx', import.meta.url), 'utf8');
-  assert.match(numericField, /onFocus=\{captureScrollOffset\}/);
+  assert.match(numericField, /onFocus=\{\(\) => \{ captureScrollOffset\(\); onFocus\?\.\(\); \}\}/);
+});
+
+test('workout entry uses a fixed screen and a compact keyboard layout instead of scrolling', () => {
+  const appScreen = readFileSync(new URL('../src/shared/ui/AppScreen.tsx', import.meta.url), 'utf8');
+  const workout = readFileSync(new URL('../src/features/workout/screens/WorkoutSessionScreen.tsx', import.meta.url), 'utf8');
+  assert.match(appScreen, /if \(!scrollable\)[\s\S]*?<View style=\{\[styles\.staticContent/);
+  assert.match(workout, /<AppScreen scrollable=\{false\} safeAreaEdges=\{\['top', 'bottom'\]\}>/);
+  assert.match(workout, /<KeyboardAvoidingView/);
+  assert.match(workout, /keyboardVisible && styles\.contentEditing/);
+  assert.match(workout, /Keyboard\.dismiss\(\)/);
 });
 
 test('History, Progress, and Settings apply a visible title inside top safe area', () => {
