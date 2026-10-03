@@ -1,6 +1,6 @@
 import type { SportDatabase } from './contract.ts';
 
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 const INITIAL_SCHEMA = `
 CREATE TABLE exercises (
@@ -150,8 +150,23 @@ export async function migrateAndSeed(db: SportDatabase, now: () => string = () =
       await tx.runAsync('INSERT INTO schema_migrations(version, applied_at) VALUES (4, ?)', now());
     });
   }
+  if ((applied?.version ?? 0) < 5) {
+    await db.withExclusiveTransactionAsync(async (tx) => {
+      await tx.execAsync(`
+        CREATE TABLE notification_preferences (
+          id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+          workout_enabled INTEGER NOT NULL DEFAULT 0 CHECK (workout_enabled IN (0, 1)),
+          photo_enabled INTEGER NOT NULL DEFAULT 0 CHECK (photo_enabled IN (0, 1)),
+          workout_hour INTEGER CHECK (workout_hour IS NULL OR workout_hour BETWEEN 0 AND 23),
+          photo_hour INTEGER NOT NULL DEFAULT 6 CHECK (photo_hour BETWEEN 0 AND 23)
+        );
+      `);
+      await tx.runAsync('INSERT INTO schema_migrations(version, applied_at) VALUES (5, ?)', now());
+    });
+  }
   await db.withExclusiveTransactionAsync(async (tx) => {
     await tx.runAsync('INSERT OR IGNORE INTO weight_inventory_settings(id,base_weight_grams) VALUES (1,3000)');
+    await tx.runAsync('INSERT OR IGNORE INTO notification_preferences(id,workout_enabled,photo_enabled,workout_hour,photo_hour) VALUES (1,0,0,NULL,6)');
     const weightedItems = [
       { id: 'river-inverted', name: "La rivière à l'envers", grams: 900, order: 0 },
       { id: 'cars-1200', name: '1200 voitures', grams: 2100, order: 1 },

@@ -125,7 +125,7 @@ test('migration seeds equipment idempotently and item CRUD recomputes future com
   assert.deepEqual(inventory.items.map((item) => item.weightGrams), [900, 2100, 1500]);
   await migrateAndSeed(db);
   assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM weight_items')).count, 3);
-  assert.equal((await db.getFirstAsync('SELECT MAX(version) AS version FROM schema_migrations')).version, 4);
+  assert.equal((await db.getFirstAsync('SELECT MAX(version) AS version FROM schema_migrations')).version, 5);
 
   const initialLoads = await getAvailableLoads(db);
   const added = await createWeightItem(db, { name: 'Livre X', weightGrams: 1200 }, id);

@@ -44,7 +44,7 @@ Add opt-in local workout and monthly photo reminders derived from SQLite. Manage
 ## Progress
 
 - [x] Read the project/product/design/ExecPlan guidance, recent progression/history/weight plans, current schedule schema, workout lifecycle, Settings routes, Expo Notifications version and configuration.
-- [ ] Add preferences migration, pure planner, and tests.
+- [x] Add preferences migration, pure planner, and tests.
 - [ ] Implement notification service and Settings UI.
 - [ ] Add app/workout synchronization and tap routing.
 - [ ] Update docs and README; run all requested verification.
@@ -53,3 +53,4 @@ Add opt-in local workout and monthly photo reminders derived from SQLite. Manage
 
 - `docs/ROADMAP.md` does not exist. No separate schedule editor exists yet; this feature reads the current schedule table and exposes a reusable full resync for any future schedule editor to call after its transaction.
 - Time selection will use native `ActionSheetIOS` rather than adding a picker dependency. The first workout reminder stays off until the user selects an hour; the first photo reminder hour is 06:00 as specified.
+- Schema v5 stores opt-in flags, a nullable workout hour, and the historical 06:00 photo hour. The pure planner builds 28 days of local calendar occurrences, skips any date with an existing session row, and emits one recurring first-of-month photo spec. DST-boundary, schedule status, month/year change, and managed identifier tests are in place.
