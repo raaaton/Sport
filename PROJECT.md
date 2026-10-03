@@ -109,6 +109,8 @@ When the timer ends:
 
 The user must be able to modify the default rest duration.
 
+The running timer is derived from a persisted absolute deadline; pause stores the remaining duration and resume establishes a new deadline. On supported iOS versions, a rest may also appear as one Live Activity on the Lock Screen and Dynamic Island. That presentation reads the workout's current exercise/set and timer state; it does not own a second timer. It is local-only and uses no Live Activity push notifications or server.
+
 ## 8. Added weight
 
 The fixed base backpack weighs 3.0 kg. It is added exactly once to each weighted load. Bodyweight is a separate 0 kg option. Initial one-unit items:
@@ -200,7 +202,7 @@ Expose useful actions through App Intents where practical.
 
 ### Live Activities
 
-The rest timer may provide a Live Activity in a later implementation phase.
+The current rest timer provides one Live Activity for the active workout rest. It shows the exercise, next set, and a system-rendered countdown on the Lock Screen and supported Dynamic Island presentations. Pause is shown as a static paused duration; resume updates the same activity from the new persisted deadline. Skip, expiry, exercise/workout completion, and workout cancellation end the activity. Sport reconciles activities on launch and foregrounding against SQLite. Expo's JavaScript API cannot schedule an ActivityKit end at a deadline while the app process is suspended, so an expired activity is ended when Sport next runs its foreground expiry/reconciliation path. No remote push token, backend, or Live Activity push notification is enabled.
 
 ## 14. Navigation
 

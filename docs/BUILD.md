@@ -34,6 +34,8 @@ Le fichier attaché au Release suit cette forme :
 Sport-1.0.0-build42-a1b2c3d.ipa
 ```
 
+Expo prebuild also generates the `ExpoWidgetsTarget` extension required by the Live Activity. The workflow verifies its app-group entitlement, activity support and disabled Live Activity push setting, then checks that the unsigned extension is embedded in `Sport.app` inside the IPA. The extension is compiled with the app and remains unsigned for SideStore; no Apple signing secret or EAS build is used. Expo Go does not contain `expo-widgets`, so validate this feature with the generated IPA on a real iPhone.
+
 La version marketing vient de `app.json`, le build number est le numéro de run GitHub, et le suffixe est le hash court du commit. Chaque run produit le tag `build-<numéro>-<hash>` et une Release normale, marquée comme la plus récente. Aucun artifact secondaire n'est téléversé.
 
 ### Signature et compte Apple

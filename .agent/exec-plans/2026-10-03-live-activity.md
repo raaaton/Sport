@@ -45,7 +45,12 @@ Physical iPhone via unsigned IPA + SideStore (mandatory, not executable in this 
 
 - [x] Read project instructions/specification, design, build, security, ExecPlan format, workout state machine, persisted rest timer, UI controller, routes, and current GitHub workflow.
 - [x] Confirm SDK 57 documentation exposes `createLiveActivity`, `getInstances`, `end('immediate')`, native SwiftUI countdown `Text`, and a disabled-by-default push configuration.
-- [ ] Install dependency and inspect concrete SDK 57 package APIs/config plugin.
-- [ ] Implement and test lifecycle/UI/recovery/deep linking.
-- [ ] Update docs and workflow validation.
-- [ ] Run requested checks and summarize physical-device work remaining.
+- [x] Install SDK 57 `expo-widgets` and inspect the runtime API, widget extension target, Info.plist values, entitlements, and Podfile integration.
+- [x] Implement separate Lock Screen and Dynamic Island layouts, native deadline display, pause/resume, serialized duplicate prevention, relaunch reconciliation, and workout deep linking.
+- [x] Add lifecycle tests for creation, pause, resume, skip, finish, cancel, duplicate activities, recovered/orphan activities, stale handles, and deadline-based remaining time.
+- [x] Update product/design/build/README documentation and assert the unsigned extension is generated and packaged by GitHub Actions.
+- [x] Run requested TypeScript, lint, unit-test, Expo compatibility/export, and diff checks; verify generated iOS files and parse every workflow shell block.
+
+The local GitHub CLI check found five previous workflow runs; all completed successfully. The current environment is Linux and has no connected iPhone, so the required SideStore/iPhone checklist remains for the user. `expo-widgets` exposes no scheduled ActivityKit end while Sport is suspended: at the deadline the native view becomes stale and shows `PRÊT · 0:00`; Sport ends it when foreground expiry/reconciliation runs. This is an Expo API limitation, not a JavaScript countdown drift.
+
+Automated verification passed: TypeScript, ESLint, all eight Node test files (including the new Live Activity suite), Expo SDK dependency compatibility, iOS JS export, workflow shell syntax, and `git diff --check`. Expo compatibility ran offline and used the local SDK 57 module map. A GitHub Actions build for this change and all physical iPhone checks remain outstanding.
