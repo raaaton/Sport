@@ -151,6 +151,10 @@ The photo vault must:
 * clear decrypted photo state when the vault locks
 * avoid exposing images through notifications or logs
 
+The vault stores an encrypted original and encrypted thumbnail in Sport's private container. Its random AES-256 key is held in biometric-protected Keychain storage for the current biometric set and this device only. The Progress gallery stays locked until an explicit Face ID unlock; leaving the tab locks it, and backgrounding immediately hides the app preview. An optional 1- or 5-minute background timeout may retain the in-memory session after hiding the screen. Temporary image-picker and thumbnail files are file-protected, read, and removed before encryption begins.
+
+The user can import from Photos or camera, select a progression date, view and delete a private copy, and explicitly create an unprotected copy in Photos. Export always requires a confirmation and add-only Photos permission. Settings provides the auto-lock delay, Face ID availability, confirmed delete-all, and an explicit destructive vault reset for cases where biometric changes make the existing key inaccessible. Sport never replaces a lost vault key automatically.
+
 Photos imported into the vault are separate from the normal Photos library.
 
 Exporting a vault photo back to the Photos library is an explicit user action.

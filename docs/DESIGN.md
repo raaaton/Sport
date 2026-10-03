@@ -16,6 +16,12 @@ Settings uses an iOS grouped-list hierarchy with sections for training, reminder
 
 Settings > Notifications uses grouped iOS-style rows for workout and monthly photo reminder switches, the photo reminder time, and the current iOS authorization state. Per-session workout times live in Planning. Time selection uses the Expo UI SwiftUI `DatePicker` wheel inside a native sheet; permission is requested only after an explicit opt-in. If iOS has denied it, the page explains the state and links to system settings. Existing photo reminder time is preserved, with 06:00 as its initial default. Foreground reminders appear in the banner and notification list without sound or badge. Photo reminder copy is generic and contains no private vault data.
 
+## Progress photo vault
+
+Progress is a private gallery rather than a dashboard. Its first visit explains the Face ID vault and requires an explicit setup action; a configured vault remains locked until the user unlocks it. Photos are grouped by their selected date, with a sparse three-column thumbnail gallery and a focused full-screen viewer. The date and source actions live in a native page sheet with a SwiftUI date wheel. Photo actions are secondary: explicit export to Photos includes a warning, and delete requires confirmation.
+
+The vault stores encrypted originals and encrypted thumbnails only. Thumbnails are decrypted to memory on demand; full-size data is decrypted only for the viewer. Leaving the Progress tab clears the private view and key reference. When Sport loses focus, an iOS native privacy cover masks the app window immediately; React then clears the private UI and the cover is removed only after the locked foreground state renders. The optional background timeout controls whether an in-memory key session can be restored, never whether a background preview remains visible. Do not add photo previews, filenames, or private details to notifications or other app surfaces.
+
 ## Workout flow
 
 Today shows the scheduled session, set/repetition or duration targets, an optional configured load target, and a quieter last-performance summary. A completed session is clearly marked; its ellipsis action offers a confirmed restart while preserving the finished record. Starting a planned session first opens a preparation screen with the ordered exercises and recent performance before the explicit start action creates a workout.
