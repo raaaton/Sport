@@ -16,6 +16,7 @@ import { getLastPerformance, getTodayPlan, startOrResumeToday } from '../data/wo
 import type { PreviousPerformance, TodayPlan } from '../domain/models';
 import { getAvailableLoads } from '@/features/weights/data/weightRepository';
 import { assessAvailableLoadProgression, type LoadProgressionAssessment } from '@/features/weights/domain/weightSystem';
+import { syncSportNotificationsSafely } from '@/features/notifications/services/localNotifications';
 
 export function WorkoutPreparationScreen() {
   const palette = colors[useColorScheme()];
@@ -50,7 +51,9 @@ export function WorkoutPreparationScreen() {
   const begin = async () => {
     setBusy(true); setError(null);
     try {
-      const workout = await startOrResumeToday(await getDatabase(), () => Crypto.randomUUID());
+      const db = await getDatabase();
+      const workout = await startOrResumeToday(db, () => Crypto.randomUUID());
+      await syncSportNotificationsSafely();
       void impactHaptic().catch(() => undefined);
       router.replace({ pathname: '/workout/[workoutId]', params: { workoutId: workout.id } } as unknown as Href);
     } catch (cause) {

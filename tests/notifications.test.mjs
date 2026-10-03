@@ -5,6 +5,7 @@ import test from 'node:test';
 import { getNotificationPreferences, getWorkoutOccurrences, getWorkoutReminderSchedules, updateNotificationPreferences } from '../src/features/notifications/data/notificationRepository.ts';
 import { createNotificationSpecs, managedSportNotificationIds, nextMonthlyPhotoOccurrence, planWorkoutNotifications } from '../src/features/notifications/domain/notificationPlanner.ts';
 import { reconcileSportNotifications } from '../src/features/notifications/domain/localNotificationReconciler.ts';
+import { routeForSportNotificationKind } from '../src/features/notifications/domain/notificationRoute.ts';
 import { migrateAndSeed } from '../src/shared/database/schema.ts';
 
 class NodeDatabase {
@@ -122,6 +123,12 @@ test('photo request uses only generic copy and a first-of-month repeating trigge
     trigger: { kind: 'calendar-monthly', day: 1, hour: 6, minute: 0 },
   });
   assert.doesNotMatch(JSON.stringify(specs[0]), /photoPath|vault|private|image/i);
+});
+
+test('notification kinds route to Today or Progress without accepting arbitrary routes', () => {
+  assert.equal(routeForSportNotificationKind('workout'), '/(tabs)');
+  assert.equal(routeForSportNotificationKind('photos'), '/(tabs)/progress');
+  assert.equal(routeForSportNotificationKind('unknown'), null);
 });
 
 test('full resync cancels prior Sport requests and leaves other apps requests untouched', async () => {

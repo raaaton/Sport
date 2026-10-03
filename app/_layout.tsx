@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/shared/theme/useColorScheme';
+import { NotificationRuntime } from '@/features/notifications/components/NotificationRuntime';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -25,6 +26,7 @@ export default function RootLayout() {
         <Stack.Screen name="workout/[workoutId]" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="workout-history" options={{ headerShown: false }} />
       </Stack>
+      <NotificationRuntime />
       <StatusBar style="auto" />
     </ThemeProvider>
   );

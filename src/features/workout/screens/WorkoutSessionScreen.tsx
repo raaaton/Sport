@@ -14,6 +14,7 @@ import { cancelWorkout, getLastPerformance, getWorkout } from '../data/workoutRe
 import type { PreviousPerformance, RestTimer, WorkoutSession, WorkoutState } from '../domain/models';
 import { assessProgression } from '../domain/progressionEngine';
 import { completeExercise, completeSet, validateSetEntry } from '../domain/workoutService';
+import { syncSportNotificationsSafely } from '@/features/notifications/services/localNotifications';
 import { stateFromSession } from '../domain/workoutMachine';
 import { isActiveRestTimer } from '../domain/restTimerMachine';
 import { NumericField } from '../components/NumericField';
@@ -192,6 +193,7 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
     try {
       const db = await getDatabase();
       const updated = await completeExercise(db, { workoutId: session.id, workoutExerciseId: current.id, feeling, targetSets: current.exercise.targetSets });
+      if (updated.status === 'completed') await syncSportNotificationsSafely();
       setSession(updated); setWorkflowState(stateFromSession(updated));
       setRestEntry(null);
       const nextExercise = updated.exercises.find((exercise) => !exercise.completed);
@@ -205,7 +207,10 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
   const endWorkout = () => Alert.alert('Abandonner la séance ?', 'La séance sera conservée comme annulée.', [
     { text: 'Continuer', style: 'cancel' },
     { text: 'Abandonner', style: 'destructive', onPress: () => {
-      void getDatabase().then((db) => cancelWorkout(db, workoutId)).then(() => router.replace('/(tabs)')).catch(() => setError('La séance n’a pas pu être annulée.'));
+      void getDatabase().then((db) => cancelWorkout(db, workoutId)).then(async () => {
+        await syncSportNotificationsSafely();
+        router.replace('/(tabs)');
+      }).catch(() => setError('La séance n’a pas pu être annulée.'));
     } },
   ]);
 

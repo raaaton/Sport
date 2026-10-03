@@ -104,7 +104,11 @@ export async function syncSportNotifications(
   }, desired);
 }
 
-export async function syncSportNotificationsSafely(): Promise<void> {
-  try { await syncSportNotifications(await getDatabase()); }
-  catch (error) { console.warn('Sport notification sync failed.', error); }
+export async function syncSportNotificationsSafely(): Promise<boolean> {
+  try {
+    await syncSportNotifications(await getDatabase());
+    return true;
+  } catch {
+    return false;
+  }
 }
