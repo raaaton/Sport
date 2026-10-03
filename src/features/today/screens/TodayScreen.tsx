@@ -12,9 +12,10 @@ import { AppSymbol } from '@/shared/ui/AppSymbol';
 import { AppText } from '@/shared/ui/AppText';
 import { getActiveWorkout, getCompletedWorkoutForToday, getLastPerformance, getTodayPlan, restartTodayWorkout } from '@/features/workout/data/workoutRepository';
 import type { PreviousPerformance, TodayPlan, WorkoutSession } from '@/features/workout/domain/models';
-import { assessProgression } from '@/features/workout/domain/progressionEngine';
 import { ExercisePlanRow } from '@/features/workout/components/ExercisePlanRow';
 import { WorkoutExerciseResultRow } from '@/features/workout/components/WorkoutExerciseResultRow';
+import { getAvailableLoads } from '@/features/weights/data/weightRepository';
+import { assessAvailableLoadProgression, type LoadProgressionAssessment } from '@/features/weights/domain/weightSystem';
 
 export function TodayScreen() {
   const palette = colors[useColorScheme()];
@@ -22,6 +23,7 @@ export function TodayScreen() {
   const [active, setActive] = useState<WorkoutSession | null>(null);
   const [completedToday, setCompletedToday] = useState<WorkoutSession | null>(null);
   const [previous, setPrevious] = useState<Record<string, PreviousPerformance | null>>({});
+  const [assessments, setAssessments] = useState<Record<string, LoadProgressionAssessment>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +38,11 @@ export function TodayScreen() {
       setActive(activeWorkout);
       setCompletedToday(completed);
       if (!activeWorkout && !completed && todaysPlan) {
+        const loads = await getAvailableLoads(db);
         const performances = await Promise.all(todaysPlan.exercises.map((exercise) => getLastPerformance(db, exercise.id)));
         setPrevious(Object.fromEntries(todaysPlan.exercises.map((exercise, index) => [exercise.id, performances[index]])));
-      } else setPrevious({});
+        setAssessments(Object.fromEntries(todaysPlan.exercises.map((exercise, index) => [exercise.id, assessAvailableLoadProgression(exercise, performances[index], loads)])));
+      } else { setPrevious({}); setAssessments({}); }
       setError(null);
     } catch {
       setError('Impossible de lire les données locales. Fermez puis relancez l’application.');
@@ -114,7 +118,7 @@ export function TodayScreen() {
                   key={exercise.id}
                   exercise={exercise}
                   previous={previous[exercise.id]}
-                  progression={assessProgression(exercise, previous[exercise.id] ?? null)}
+                  loadAssessment={assessments[exercise.id]}
                 />
               ))}
             </View>

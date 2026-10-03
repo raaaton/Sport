@@ -14,12 +14,14 @@ import { ExercisePlanRow } from '../components/ExercisePlanRow';
 import { PrimaryAction } from '../components/PrimaryAction';
 import { getLastPerformance, getTodayPlan, startOrResumeToday } from '../data/workoutRepository';
 import type { PreviousPerformance, TodayPlan } from '../domain/models';
-import { assessProgression } from '../domain/progressionEngine';
+import { getAvailableLoads } from '@/features/weights/data/weightRepository';
+import { assessAvailableLoadProgression, type LoadProgressionAssessment } from '@/features/weights/domain/weightSystem';
 
 export function WorkoutPreparationScreen() {
   const palette = colors[useColorScheme()];
   const [plan, setPlan] = useState<TodayPlan>();
   const [previous, setPrevious] = useState<Record<string, PreviousPerformance | null>>({});
+  const [assessments, setAssessments] = useState<Record<string, LoadProgressionAssessment>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +33,12 @@ export function WorkoutPreparationScreen() {
         const db = await getDatabase();
         const todayPlan = await getTodayPlan(db);
         if (!todayPlan) throw new Error('Aucune séance n’est planifiée aujourd’hui.');
+        const loads = await getAvailableLoads(db);
         const performances = await Promise.all(todayPlan.exercises.map((exercise) => getLastPerformance(db, exercise.id)));
         if (mounted) {
           setPlan(todayPlan);
           setPrevious(Object.fromEntries(todayPlan.exercises.map((exercise, index) => [exercise.id, performances[index]])));
+          setAssessments(Object.fromEntries(todayPlan.exercises.map((exercise, index) => [exercise.id, assessAvailableLoadProgression(exercise, performances[index], loads)])));
         }
       } catch (cause) {
         if (mounted) setError(cause instanceof Error ? cause.message : 'La séance n’a pas pu être chargée.');
@@ -67,7 +71,7 @@ export function WorkoutPreparationScreen() {
             key={exercise.id}
             exercise={exercise}
             previous={previous[exercise.id]}
-            progression={assessProgression(exercise, previous[exercise.id] ?? null)}
+            loadAssessment={assessments[exercise.id]}
             last={index === plan.exercises.length - 1}
           />
         ))}

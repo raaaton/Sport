@@ -6,6 +6,7 @@ import { AppSymbol } from '@/shared/ui/AppSymbol';
 import { AppText } from '@/shared/ui/AppText';
 import type { Exercise, PreviousPerformance } from '../domain/models';
 import type { ProgressionAssessment } from '../domain/progressionEngine';
+import { formatLoad, type LoadProgressionAssessment } from '@/features/weights/domain/weightSystem';
 
 function objective(exercise: Exercise): string {
   if (exercise.trackingType === 'duration') {
@@ -29,20 +30,21 @@ function previousSummary(performance: PreviousPerformance): string {
   return `${sets} · ${load}${performance.feeling === null ? '' : ` · ${performance.feeling}/10`}`;
 }
 
-type Props = { exercise: Exercise; previous?: PreviousPerformance | null; progression?: ProgressionAssessment; last?: boolean };
+type Props = { exercise: Exercise; previous?: PreviousPerformance | null; progression?: ProgressionAssessment; loadAssessment?: LoadProgressionAssessment; last?: boolean };
 
-export function ExercisePlanRow({ exercise, previous, progression, last = false }: Props) {
+export function ExercisePlanRow({ exercise, previous, progression, loadAssessment, last = false }: Props) {
   const palette = colors[useColorScheme()];
+  const currentProgression = loadAssessment?.progression ?? progression;
+  const targetLoad = loadAssessment ? formatLoad(loadAssessment.targetLoadGrams) : null;
   return (
     <View style={[styles.row, !last && { borderBottomColor: palette.separator }]}>
       <AppText variant="headline">{exercise.name}</AppText>
       <AppText variant="subheadline" colorRole="secondary">{objective(exercise)}</AppText>
-      {exercise.targetAddedWeight !== null ? <AppText variant="subheadline">{exercise.targetAddedWeight === 0 ? 'Poids du corps' : `Objectif : +${exercise.targetAddedWeight} kg`}</AppText> : null}
-      {progression?.status === 'increase_load_recommended' && exercise.targetAddedWeight === null ? <AppText variant="subheadline">Objectif : augmenter le lest</AppText> : null}
-      {progression?.status === 'increase_load_recommended' ? (
+      {targetLoad ? <AppText variant="subheadline">Objectif : {targetLoad}</AppText> : exercise.targetAddedWeight !== null ? <AppText variant="subheadline">Objectif : {exercise.targetAddedWeight === 0 ? 'Poids du corps' : `+${exercise.targetAddedWeight} kg`}</AppText> : null}
+      {currentProgression?.status === 'increase_load_recommended' ? (
         <View style={styles.recommendation}>
-          <View style={styles.recommendationHeading}><AppSymbol name="arrow.up" size={13} color={palette.accent} /><AppText variant="footnote">Augmentation du lest recommandée</AppText></View>
-          <AppText variant="caption" colorRole="tertiary">La charge exacte dépendra du matériel disponible.</AppText>
+          <View style={styles.recommendationHeading}><AppSymbol name="arrow.up" size={13} color={palette.accent} /><AppText variant="footnote">{loadAssessment?.noHigherLoadAvailable ? 'Objectif atteint' : 'Augmentation du lest recommandée'}</AppText></View>
+          {loadAssessment?.noHigherLoadAvailable ? <AppText variant="caption" colorRole="tertiary">Aucune charge supérieure disponible avec votre matériel.</AppText> : null}
         </View>
       ) : null}
       {previous ? <View style={styles.previous}><AppText variant="caption" colorRole="tertiary">Dernière fois</AppText><AppText variant="footnote" colorRole="secondary">{previousSummary(previous)}</AppText></View> : null}

@@ -58,7 +58,7 @@ Manage the fixed 3.000 kg base bag and user-owned weighted objects in SQLite, ge
 
 - [x] Read project/product/design/plan guidance, the stage 4 progression and stage 5 History plans, current SQLite schema/progression engine, Today, workout, History, Settings placeholder, and shared controls.
 - [x] Implement schema/inventory/combinations/snapshots and tests.
-- [ ] Integrate concrete next-load assessment into Today and preparation.
+- [x] Integrate concrete next-load assessment into Today and preparation.
 - [ ] Implement Settings management, workout selector, and History composition display.
 - [ ] Run all requested checks and update final implementation notes.
 
@@ -67,3 +67,4 @@ Manage the fixed 3.000 kg base bag and user-owned weighted objects in SQLite, ge
 - Existing history sets currently store only numeric load; snapshots must be additive, nullable, and independent of the current inventory. Migration will not rewrite any existing historic load value.
 - Current free numeric workout field is validated as a number but has no inventory integration. The rest/workout state machine and set progression remain unchanged; only the set load input and persistence payload will change.
 - The first domain test pass caught an omitted bag-only combination and a nullable TypeScript value at the insert boundary; both were fixed before committing this layer. Combination generation explicitly includes bodyweight and the base bag, then all unique bag-plus-object subsets.
+- Today and preparation now call the same pure load-aware progression assessment used later by the workout picker. Eligibility remains delegated to the existing progression engine; these screens show the selected concrete target and explain when no heavier available load exists.
