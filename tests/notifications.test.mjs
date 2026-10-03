@@ -63,7 +63,7 @@ test('schema v6 preserves previously selected workout and photo reminder times',
   await migrateWorkoutReminderTimesToSchedules(db, 'migration');
   assert.deepEqual((await db.getAllAsync('SELECT id,reminder_time_minutes FROM workout_schedules ORDER BY id')).map((row) => ({ ...row })), [
     { id: 'active', reminder_time_minutes: 1080 },
-    { id: 'inactive', reminder_time_minutes: null },
+    { id: 'inactive', reminder_time_minutes: 1080 },
   ]);
   assert.equal((await db.getFirstAsync('SELECT photo_time_minutes FROM notification_preferences WHERE id=1')).photo_time_minutes, 300);
 });
@@ -81,9 +81,15 @@ test('schedule editor saves weekday, per-session time, active state and ordered 
   let saved = (await getEditableWorkoutSchedules(db)).find((item) => item.id === legs.id);
   assert.deepEqual(saved, { ...legs, weekday: 3, workoutType: 'Jambes', reminderTimeMinutes: 1170 });
   assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM workout_schedules')).count, 3);
+  const reminderSchedules = await getWorkoutReminderSchedules(db);
+  const movedReminder = planWorkoutNotifications(reminderSchedules, [], enabled, new Date(2026, 9, 5, 17), 8);
+  assert.deepEqual(movedReminder.map(({ occurrenceDate, hour, minute }) => [occurrenceDate, hour, minute]), [['2026-10-07', 19, 30]]);
   await assert.rejects(saveWorkoutSchedule(db, legs.id, {
     ...saved, weekday: 6,
   }), /Push occupe déjà ce jour/);
+  await assert.rejects(saveWorkoutSchedule(db, legs.id, {
+    ...saved, reminderTimeMinutes: 1440,
+  }), /00:00 et 23:59/);
 
   const push = initial.find((item) => item.id === 'saturday-push');
   assert.ok(push);
@@ -176,6 +182,8 @@ test('photo request uses only generic copy and a first-of-month repeating trigge
     trigger: { kind: 'calendar-monthly', day: 1, hour: 6, minute: 0 },
   });
   assert.doesNotMatch(JSON.stringify(specs[0]), /photoPath|vault|private|image/i);
+  const customTime = createNotificationSpecs([], [], { ...enabled, photoEnabled: true, photoTimeMinutes: 327 }, new Date(2026, 9, 3));
+  assert.deepEqual(customTime[0].trigger, { kind: 'calendar-monthly', day: 1, hour: 5, minute: 27 });
 });
 
 test('notification kinds route to Today or Progress without accepting arbitrary routes', () => {

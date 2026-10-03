@@ -21,7 +21,7 @@ const sections: { items: SettingsItem[]; title: string }[] = [
     items: [
       {
         title: 'Planning des séances',
-        description: 'Jours et séances',
+        description: 'Jours, rappels et exercices',
         icon: 'calendar',
         route: '/settings/schedule',
       },

@@ -93,7 +93,7 @@ export async function migrateWorkoutReminderTimesToSchedules(tx: SportDatabase, 
     SET reminder_time_minutes = (
       SELECT workout_hour * 60 FROM notification_preferences WHERE id=1
     )
-    WHERE is_active=1 AND (SELECT workout_hour FROM notification_preferences WHERE id=1) IS NOT NULL;
+    WHERE (SELECT workout_hour FROM notification_preferences WHERE id=1) IS NOT NULL;
   `);
   await tx.runAsync('INSERT INTO schema_migrations(version, applied_at) VALUES (6, ?)', now);
 }

@@ -1,9 +1,5 @@
-import { SettingsDetailScreen } from '@/features/settings/screens/SettingsDetailScreen';
+import { ScheduleSettingsScreen } from '@/features/settings/screens/ScheduleSettingsScreen';
 
 export default function ScheduleSettingsRoute() {
-  return (
-    <SettingsDetailScreen>
-      Choisissez les jours d’entraînement et associez une séance à chacun d’eux.
-    </SettingsDetailScreen>
-  );
+  return <ScheduleSettingsScreen />;
 }

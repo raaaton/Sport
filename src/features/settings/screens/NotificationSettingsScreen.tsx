@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
-import { ActionSheetIOS, ActivityIndicator, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { getDatabase } from '@/shared/database';
 import { colors, radii, spacing } from '@/shared/theme/tokens';
@@ -9,17 +8,14 @@ import { useColorScheme } from '@/shared/theme/useColorScheme';
 import { AppScreen } from '@/shared/ui/AppScreen';
 import { AppSymbol } from '@/shared/ui/AppSymbol';
 import { AppText } from '@/shared/ui/AppText';
-import { getNotificationPreferences, updateNotificationPreferences } from '@/features/notifications/data/notificationRepository';
+import { TimePickerSheet } from '@/shared/ui/TimePickerSheet';
+import { getNotificationPreferences, getWorkoutReminderSchedules, updateNotificationPreferences } from '@/features/notifications/data/notificationRepository';
 import type { NotificationPermissionState } from '@/features/notifications/services/localNotifications';
 import { getManagedSportNotifications, getSportNotificationPermissionState, requestSportNotificationPermission, syncSportNotifications } from '@/features/notifications/services/localNotifications';
 import type { NotificationPreferences } from '@/features/notifications/domain/notificationPlanner';
 
-type ReminderKind = 'workout' | 'photo';
-type HourPickerTarget = { kind: ReminderKind; enableAfterPick: boolean } | null;
-
-const emptyPreferences: NotificationPreferences = { workoutEnabled: false, photoEnabled: false, workoutHour: null, photoHour: 6 };
-const hours = Array.from({ length: 24 }, (_, hour) => hour);
-const formatHour = (hour: number | null) => hour === null ? 'Choisir une heure' : `${String(hour).padStart(2, '0')}:00`;
+const emptyPreferences: NotificationPreferences = { workoutEnabled: false, photoEnabled: false, photoTimeMinutes: 360 };
+const formatTime = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 
 function permissionLabel(state: NotificationPermissionState | null): string {
   switch (state) {
@@ -38,24 +34,27 @@ function permissionAllows(state: NotificationPermissionState): boolean {
 
 export function NotificationSettingsScreen() {
   const palette = colors[useColorScheme()];
+  const router = useRouter();
   const [preferences, setPreferences] = useState(emptyPreferences);
   const [permission, setPermission] = useState<NotificationPermissionState | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [schedulesWithoutTime, setSchedulesWithoutTime] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hourPickerTarget, setHourPickerTarget] = useState<HourPickerTarget>(null);
+  const [photoPickerVisible, setPhotoPickerVisible] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const db = await getDatabase();
-      const [currentPreferences, currentPermission, managedRequests] = await Promise.all([
-        getNotificationPreferences(db), getSportNotificationPermissionState(), getManagedSportNotifications(),
+      const [currentPreferences, currentPermission, managedRequests, schedules] = await Promise.all([
+        getNotificationPreferences(db), getSportNotificationPermissionState(), getManagedSportNotifications(), getWorkoutReminderSchedules(db),
       ]);
       setPreferences(currentPreferences);
       setPermission(currentPermission);
       setPendingCount(managedRequests.length);
+      setSchedulesWithoutTime(schedules.filter((schedule) => schedule.isActive && schedule.reminderTimeMinutes === null).length);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Les notifications n’ont pas pu être chargées.');
@@ -79,7 +78,11 @@ export function NotificationSettingsScreen() {
     } finally { setBusy(false); }
   };
 
-  const enableReminder = async (kind: ReminderKind) => {
+  const toggleReminder = async (kind: 'workout' | 'photo', enabled: boolean) => {
+    if (!enabled) {
+      await updateAndSync(kind === 'workout' ? { workoutEnabled: false } : { photoEnabled: false });
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -91,37 +94,14 @@ export function NotificationSettingsScreen() {
           : 'Les notifications n’ont pas été autorisées.');
         return;
       }
-      await updateAndSync(kind === 'workout' ? { workoutEnabled: true } : { photoEnabled: true });
+      const db = await getDatabase();
+      const updated = await updateNotificationPreferences(db, kind === 'workout' ? { workoutEnabled: true } : { photoEnabled: true });
+      setPreferences(updated);
+      await syncSportNotifications(db);
+      setPendingCount((await getManagedSportNotifications()).length);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'La permission n’a pas pu être vérifiée.');
     } finally { setBusy(false); }
-  };
-
-  const chooseHour = (kind: ReminderKind, enableAfterPick = false) => {
-    if (Platform.OS === 'ios') {
-      const options = [...hours.map((hour) => formatHour(hour)), 'Annuler'];
-      ActionSheetIOS.showActionSheetWithOptions({ title: kind === 'workout' ? 'Heure des séances' : 'Heure des photos', options, cancelButtonIndex: hours.length }, (index) => {
-        if (index >= 0 && index < hours.length) void saveHour(kind, index, enableAfterPick);
-      });
-    } else setHourPickerTarget({ kind, enableAfterPick });
-  };
-
-  const saveHour = async (kind: ReminderKind, hour: number, enableAfterPick: boolean) => {
-    setHourPickerTarget(null);
-    const saved = await updateAndSync(kind === 'workout' ? { workoutHour: hour } : { photoHour: hour });
-    if (saved && enableAfterPick) await enableReminder(kind);
-  };
-
-  const toggleReminder = async (kind: ReminderKind, enabled: boolean) => {
-    if (!enabled) {
-      await updateAndSync(kind === 'workout' ? { workoutEnabled: false } : { photoEnabled: false });
-      return;
-    }
-    if (kind === 'workout' && preferences.workoutHour === null) {
-      chooseHour('workout', true);
-      return;
-    }
-    await enableReminder(kind);
   };
 
   const openSystemSettings = () => { void Linking.openSettings().catch(() => setError('Les réglages iOS ne peuvent pas être ouverts depuis cet appareil.')); };
@@ -139,7 +119,7 @@ export function NotificationSettingsScreen() {
           <AppText variant="footnote" colorRole="secondary" style={styles.sectionTitle}>RAPPELS</AppText>
           <View style={[styles.group, { backgroundColor: palette.groupedBackground }]}>
             <View style={styles.switchRow}>
-              <View style={styles.rowCopy}><AppText variant="body">Séances</AppText><AppText variant="caption" colorRole="secondary">Jours actifs du planning</AppText></View>
+              <View style={styles.rowCopy}><AppText variant="body">Séances</AppText><AppText variant="caption" colorRole="secondary">Horaires configurés dans le planning</AppText></View>
               <Switch accessibilityLabel="Notifications de séance" value={preferences.workoutEnabled} disabled={busy || loading} onValueChange={(value) => { void toggleReminder('workout', value); }} />
             </View>
             <View style={[styles.separator, { backgroundColor: palette.separator }]} />
@@ -148,55 +128,47 @@ export function NotificationSettingsScreen() {
               <Switch accessibilityLabel="Rappel mensuel des photos" value={preferences.photoEnabled} disabled={busy || loading} onValueChange={(value) => { void toggleReminder('photo', value); }} />
             </View>
           </View>
+          {schedulesWithoutTime > 0 ? <AppText variant="caption" colorRole="tertiary" style={styles.note}>{schedulesWithoutTime} séance{schedulesWithoutTime === 1 ? ' active n’a pas encore d’horaire' : 's actives n’ont pas encore d’horaire'} de rappel. Définissez leur heure dans Planning.</AppText> : null}
+          <Pressable accessibilityRole="button" onPress={() => router.push('/settings/schedule')} style={({ pressed }) => [styles.linkRow, { opacity: pressed ? 0.55 : 1 }]}>
+            <AppSymbol name="calendar" size={17} color={palette.accent} />
+            <AppText variant="subheadline" style={{ color: palette.accent }}>Configurer les jours et heures des séances</AppText>
+            <AppSymbol name="chevron.right" size={13} color={palette.tertiary} />
+          </Pressable>
         </View>
 
         <View style={styles.section}>
-          <AppText variant="footnote" colorRole="secondary" style={styles.sectionTitle}>HORAIRES</AppText>
+          <AppText variant="footnote" colorRole="secondary" style={styles.sectionTitle}>RAPPEL PHOTO</AppText>
           <View style={[styles.group, { backgroundColor: palette.groupedBackground }]}>
-            <Pressable accessibilityRole="button" accessibilityHint="Choisir l’heure des rappels de séance" disabled={busy} onPress={() => chooseHour('workout')} style={({ pressed }) => [styles.timeRow, { opacity: pressed ? 0.55 : 1 }]}>
-              <View style={styles.rowCopy}><AppText variant="body">Séances</AppText><AppText variant="caption" colorRole="secondary">Appliqué à tous les jours actifs</AppText></View>
-              <AppText variant="body" style={{ color: preferences.workoutHour === null ? palette.accent : palette.secondary }}>{formatHour(preferences.workoutHour)}</AppText>
-              <AppSymbol name="chevron.right" color={palette.tertiary} size={13} />
-            </Pressable>
-            <View style={[styles.separator, { backgroundColor: palette.separator }]} />
-            <Pressable accessibilityRole="button" accessibilityHint="Modifier l’heure du rappel mensuel des photos" disabled={busy} onPress={() => chooseHour('photo')} style={({ pressed }) => [styles.timeRow, { opacity: pressed ? 0.55 : 1 }]}>
-              <View style={styles.rowCopy}><AppText variant="body">Photos</AppText><AppText variant="caption" colorRole="secondary">Le premier jour du mois</AppText></View>
-              <AppText variant="body" colorRole="secondary">{formatHour(preferences.photoHour)}</AppText>
+            <Pressable accessibilityRole="button" accessibilityHint="Choisir l’heure du rappel mensuel des photos" disabled={busy || loading} onPress={() => setPhotoPickerVisible(true)} style={({ pressed }) => [styles.timeRow, { opacity: pressed ? 0.55 : 1 }]}>
+              <View style={styles.rowCopy}><AppText variant="body">Heure</AppText><AppText variant="caption" colorRole="secondary">Le 1er de chaque mois</AppText></View>
+              <AppText variant="body" colorRole="secondary">{formatTime(preferences.photoTimeMinutes)}</AppText>
               <AppSymbol name="chevron.right" color={palette.tertiary} size={13} />
             </Pressable>
           </View>
-          <AppText variant="caption" colorRole="tertiary" style={styles.note}>Aucune heure de séance n’était définie auparavant. Choisissez-la avant d’activer ce rappel. L’heure des photos reprend la valeur historique de 06:00.</AppText>
+          <AppText variant="caption" colorRole="tertiary" style={styles.note}>Le rappel photo conserve 06:00 par défaut. Son contenu ne révèle aucune information privée.</AppText>
         </View>
 
         <View style={styles.section}>
           <AppText variant="footnote" colorRole="secondary" style={styles.sectionTitle}>AUTORISATION IOS</AppText>
           <View style={[styles.statusRow, { backgroundColor: palette.groupedBackground }]}>
             <AppText variant="body">{permissionLabel(permission)}</AppText>
-            {permission === 'authorized' || permission === 'provisional' || permission === 'ephemeral'
-              ? <AppSymbol name="checkmark.circle.fill" color={palette.accent} size={20} />
-              : null}
+            {permissionAllows(permission ?? 'not-determined') ? <AppSymbol name="checkmark.circle.fill" color={palette.accent} size={20} /> : null}
           </View>
           {permission === 'denied' ? <Pressable accessibilityRole="button" onPress={openSystemSettings} style={styles.settingsLink}><AppText variant="subheadline" style={{ color: palette.accent }}>Ouvrir les réglages iOS</AppText><AppSymbol name="arrow.up.right" color={palette.accent} size={13} /></Pressable> : null}
           {permissionAllows(permission ?? 'not-determined') ? <AppText variant="caption" colorRole="tertiary" style={styles.note}>{pendingCount} rappel{pendingCount === 1 ? '' : 's'} Sport en attente. Au premier plan, les rappels apparaissent en bannière et dans le centre de notifications, sans son.</AppText> : null}
         </View>
         {error ? <AppText colorRole="destructive" accessibilityRole="alert">{error}</AppText> : null}
       </View>
-
-      <Modal visible={hourPickerTarget !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setHourPickerTarget(null)}>
-        <SafeAreaView edges={['top', 'bottom']} style={[styles.hourModal, { backgroundColor: palette.background }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: palette.separator }]}>
-            <Pressable accessibilityRole="button" onPress={() => setHourPickerTarget(null)}><AppText style={{ color: palette.accent }}>Annuler</AppText></Pressable>
-            <AppText variant="headline">Choisir une heure</AppText>
-            <View style={styles.headerSpace} />
-          </View>
-          <ScrollView contentContainerStyle={styles.hourList}>
-            {hours.map((hour) => <Pressable key={hour} accessibilityRole="button" onPress={() => { if (hourPickerTarget) void saveHour(hourPickerTarget.kind, hour, hourPickerTarget.enableAfterPick); }} style={[styles.hourOption, { borderBottomColor: palette.separator }]}>
-              <AppText variant="body">{formatHour(hour)}</AppText>
-              {((hourPickerTarget?.kind === 'workout' && preferences.workoutHour === hour) || (hourPickerTarget?.kind === 'photo' && preferences.photoHour === hour)) ? <AppSymbol name="checkmark" color={palette.accent} size={18} /> : null}
-            </Pressable>)}
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+      <TimePickerSheet
+        visible={photoPickerVisible}
+        title="Heure du rappel photo"
+        initialTimeMinutes={preferences.photoTimeMinutes}
+        onCancel={() => setPhotoPickerVisible(false)}
+        onSave={(photoTimeMinutes) => {
+          setPhotoPickerVisible(false);
+          void updateAndSync({ photoTimeMinutes });
+        }}
+      />
     </AppScreen>
   );
 }
@@ -212,12 +184,8 @@ const styles = StyleSheet.create({
   rowCopy: { flex: 1, gap: 2 },
   separator: { height: StyleSheet.hairlineWidth, marginLeft: spacing.md },
   timeRow: { minHeight: 66, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  linkRow: { minHeight: 44, marginHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   note: { marginHorizontal: spacing.md, marginTop: spacing.xs },
   statusRow: { minHeight: 54, paddingHorizontal: spacing.md, borderRadius: radii.medium, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   settingsLink: { minHeight: 42, marginHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  hourModal: { flex: 1 },
-  modalHeader: { minHeight: 56, paddingHorizontal: spacing.lg, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerSpace: { width: 52 },
-  hourList: { paddingHorizontal: spacing.lg },
-  hourOption: { minHeight: 58, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });
