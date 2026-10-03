@@ -179,3 +179,4 @@ Keep:
 * `.agent/PLANS.md` as the format for execution plans
 
 Update documentation when the implementation changes a documented behavior.
+Update the root `README.md` at the end of every major roadmap stage. Keep its shipped-feature summary, stage validation status, development commands, and outstanding manual checks current.
