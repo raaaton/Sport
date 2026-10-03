@@ -51,11 +51,11 @@ const bannerContentBefore = `      if let url = context.attributes.url.flatMap(U
       }`;
 const bannerContentAfter = `      if let url = context.attributes.url.flatMap(URL.init(string:)) {
         banner.widgetURL(url)
-          .activityBackgroundTint(Color(uiColor: .secondarySystemBackground))
+          .activityBackgroundTint(SportActivityStyle.lockScreenBackground)
           .activitySystemActionForegroundColor(Color.primary)
       } else {
         banner
-          .activityBackgroundTint(Color(uiColor: .secondarySystemBackground))
+          .activityBackgroundTint(SportActivityStyle.lockScreenBackground)
           .activitySystemActionForegroundColor(Color.primary)
       }`;
 
@@ -66,15 +66,38 @@ if (!source.includes('SportRestIslandSection(propsJSON: context.state.props')) {
   source = source.replace(sectionBefore, sectionAfter).replace(bannerBefore, bannerAfter);
 }
 
-if (!source.includes('.activityBackgroundTint(Color(uiColor: .secondarySystemBackground))')) {
+if (!source.includes('.activityBackgroundTint(SportActivityStyle.lockScreenBackground)')) {
   if (!source.includes(bannerContentBefore)) {
     throw new Error('Could not locate the expected Lock Screen banner modifiers in expo-widgets.');
   }
   source = source.replace(bannerContentBefore, bannerContentAfter);
 }
 
+if (!source.includes('.keylineTint(SportActivityStyle.islandKeyline)')) {
+  source = source
+    .replace('return island.widgetURL(url)', 'return island.widgetURL(url).keylineTint(SportActivityStyle.islandKeyline)')
+    .replace('return island\n', 'return island.keylineTint(SportActivityStyle.islandKeyline)\n');
+}
+
 const marker = 'extension WidgetConfiguration {';
 const nativeViews = `
+@available(iOS 16.1, *)
+private enum SportActivityStyle {
+  static let lockScreenBackground = Color(uiColor: UIColor { traits in
+    if traits.userInterfaceStyle == .dark {
+      return UIColor(red: 0.055, green: 0.10, blue: 0.17, alpha: 1)
+    }
+    return UIColor(red: 0.91, green: 0.94, blue: 0.985, alpha: 1)
+  })
+
+  static let islandKeyline = Color(uiColor: UIColor { traits in
+    if traits.userInterfaceStyle == .dark {
+      return UIColor(red: 0.04, green: 0.52, blue: 1, alpha: 1)
+    }
+    return UIColor(red: 0, green: 0.48, blue: 1, alpha: 1)
+  })
+}
+
 @available(iOS 16.1, *)
 private struct SportRestProps: Decodable {
   let exerciseName: String
@@ -201,7 +224,8 @@ if (!source.includes('private struct SportRestProps: Decodable')) {
 
 if (!source.includes('SportRestLockScreen(propsJSON: context.state.props)') ||
     !source.includes('Text(timerInterval: Date.now...deadline') ||
-    !source.includes('.activityBackgroundTint(Color(uiColor: .secondarySystemBackground))')) {
+    !source.includes('.activityBackgroundTint(SportActivityStyle.lockScreenBackground)') ||
+    !source.includes('.keylineTint(SportActivityStyle.islandKeyline)')) {
   throw new Error('The Sport native Live Activity presentation patch was not applied completely.');
 }
 

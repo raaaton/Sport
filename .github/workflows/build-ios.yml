@@ -50,7 +50,8 @@ jobs:
           npm ci
           grep -Fq 'SportRestLockScreen(propsJSON: context.state.props)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'Text(timerInterval: Date.now...deadline' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
-          grep -Fq '.activityBackgroundTint(Color(uiColor: .secondarySystemBackground))' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq '.activityBackgroundTint(SportActivityStyle.lockScreenBackground)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq '.keylineTint(SportActivityStyle.islandKeyline)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           npx expo prebuild --platform ios --no-install
 
       - name: Verify generated Live Activity target and install Pods
