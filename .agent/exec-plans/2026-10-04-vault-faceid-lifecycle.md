@@ -39,6 +39,8 @@ Fix the Progress vault's Face ID unlock flow when iOS reports a temporary inacti
 
 - [x] Read the project security/design instructions, vault implementation, session state, native privacy bridge, recent vault plan, and iOS 27 scene lifecycle changes.
 - [x] Identify the inactive-state Face ID race and dark-mode black privacy cover.
-- [ ] Implement the guarded state transition, neutral opaque cover, tests, and documentation.
-- [ ] Run automated checks and commit the focused fix.
+- [x] Implement the guarded state transition, neutral opaque cover, tests, and documentation.
+- [x] Run TypeScript, ESLint, all 7 test suites, Expo install check, iOS export, and `git diff --check`; all passed. Expo dependency validation used its local bundled map because network access is disabled.
+- [x] Review asynchronous generations: a true background increments the generation and stale biometric success/failure cannot change the locked UI; transient Face ID `inactive` does not increment it.
+- [ ] Commit and push the focused fix so the macOS workflow compiles the native cover.
 - [ ] User validates Face ID and app-switcher rendering on iPhone.

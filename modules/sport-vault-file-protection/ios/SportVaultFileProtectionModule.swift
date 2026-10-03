@@ -58,9 +58,46 @@ private enum SportVaultPrivacyShield {
       guard window.viewWithTag(viewTag) == nil else { return }
       let cover = UIView(frame: window.bounds)
       cover.tag = viewTag
-      cover.backgroundColor = .systemBackground
+      cover.backgroundColor = .secondarySystemBackground
       cover.isAccessibilityElement = false
+      cover.accessibilityElementsHidden = true
       cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+
+      let content = UIStackView()
+      content.axis = .vertical
+      content.alignment = .center
+      content.spacing = 8
+      content.translatesAutoresizingMaskIntoConstraints = false
+      content.isAccessibilityElement = false
+
+      let lock = UIImageView(image: UIImage(systemName: "lock.fill"))
+      lock.tintColor = .tertiaryLabel
+      lock.contentMode = .scaleAspectFit
+      lock.translatesAutoresizingMaskIntoConstraints = false
+      NSLayoutConstraint.activate([
+        lock.widthAnchor.constraint(equalToConstant: 24),
+        lock.heightAnchor.constraint(equalToConstant: 28),
+      ])
+
+      let title = UILabel()
+      title.text = "Sport"
+      title.font = .preferredFont(forTextStyle: .headline)
+      title.textColor = .label
+
+      let subtitle = UILabel()
+      subtitle.text = "Contenu masqué"
+      subtitle.font = .preferredFont(forTextStyle: .footnote)
+      subtitle.textColor = .secondaryLabel
+
+      content.addArrangedSubview(lock)
+      content.addArrangedSubview(title)
+      content.addArrangedSubview(subtitle)
+      cover.addSubview(content)
+      NSLayoutConstraint.activate([
+        content.centerXAnchor.constraint(equalTo: cover.centerXAnchor),
+        content.centerYAnchor.constraint(equalTo: cover.centerYAnchor),
+      ])
+
       window.addSubview(cover)
       window.bringSubviewToFront(cover)
     }

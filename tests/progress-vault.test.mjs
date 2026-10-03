@@ -17,6 +17,7 @@ import {
 import {
   autoLockDeadline,
   hasAutoLockExpired,
+  shouldLockVaultForAppState,
   transitionVaultSession,
   validateAutoLockMinutes,
   validatePhotoDate,
@@ -102,6 +103,14 @@ test('auto-lock setting accepts only immediate, one minute, or five minutes', as
   assert.equal(autoLockDeadline(10_000, 1), 70_000);
   assert.equal(hasAutoLockExpired(70_000, 69_999), false);
   assert.equal(hasAutoLockExpired(70_000, 70_000), true);
+});
+
+test('Face ID presentation may transiently deactivate the app without locking the vault', () => {
+  assert.equal(shouldLockVaultForAppState('inactive', true), false);
+  assert.equal(shouldLockVaultForAppState('inactive', false), true);
+  assert.equal(shouldLockVaultForAppState('background', true), true);
+  assert.equal(shouldLockVaultForAppState('background', false), true);
+  assert.equal(shouldLockVaultForAppState('active', false), false);
 });
 
 test('vault session transitions fail closed and reject stale completions', () => {

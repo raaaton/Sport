@@ -71,3 +71,14 @@ export function autoLockDeadline(backgroundAt: number, minutes: VaultAutoLockMin
 export function hasAutoLockExpired(deadline: number, now: number): boolean {
   return now >= deadline;
 }
+
+/**
+ * iOS may report `inactive` while a system biometric sheet is presented.
+ * Keep that explicit unlock attempt alive, but always lock on a real background
+ * transition and on every other loss of activity.
+ */
+export function shouldLockVaultForAppState(nextState: string, biometricPromptInFlight: boolean): boolean {
+  if (nextState === 'active') return false;
+  if (nextState === 'inactive' && biometricPromptInFlight) return false;
+  return true;
+}

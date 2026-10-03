@@ -11,7 +11,7 @@ import { ProgressPhotoDateSheet } from '../components/ProgressPhotoDateSheet';
 import { ProgressPhotoGallery } from '../components/ProgressPhotoGallery';
 import { ProgressPhotoViewer } from '../components/ProgressPhotoViewer';
 import { getProgressVaultSettings } from '../data/progressPhotoRepository';
-import { autoLockDeadline, hasAutoLockExpired, transitionVaultSession, type ProgressPhoto, type ProgressVaultSettings, type VaultSessionState } from '../domain/vaultModels';
+import { autoLockDeadline, hasAutoLockExpired, shouldLockVaultForAppState, transitionVaultSession, type ProgressPhoto, type ProgressVaultSettings, type VaultSessionState } from '../domain/vaultModels';
 import { progressVaultService, type PhotoPreview } from '../services/progressVaultService';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -60,7 +60,9 @@ export function ProgressScreen() {
   const [photoDate, setPhotoDate] = useState(new Date());
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [sessionGeneration, setSessionGeneration] = useState(0);
+  const sessionGenerationRef = useRef(0);
+  const biometricPromptInFlightRef = useRef(false);
+  const unlockInFlightRef = useRef(false);
   const warmKeyRef = useRef<string | null>(null);
   const keyRef = useRef<string | null>(null);
   const settingsRef = useRef<VaultSettingsState>(null);
@@ -83,7 +85,7 @@ export function ProgressScreen() {
     return () => { mounted = false; };
   }, []);
 
-  const loadPhotos = useCallback(async (vaultKey: string, generation = sessionGeneration) => {
+  const loadPhotos = useCallback(async (vaultKey: string, generation = sessionGenerationRef.current) => {
     const db = await getDatabase();
     const nextPhotos = await progressVaultService.listPhotos(db);
     const nextThumbnails: Record<string, string> = {};
@@ -94,39 +96,51 @@ export function ProgressScreen() {
         nextThumbnails[photo.id] = preview.uri;
       } catch { unavailableCount += 1; }
     }
-    if (generation === sessionGeneration && AppState.currentState === 'active') {
+    if (generation === sessionGenerationRef.current && AppState.currentState === 'active') {
       setPhotos(nextPhotos);
       setThumbnails(nextThumbnails);
       setErrorMessage(unavailableCount > 0 ? 'Certaines photos ne peuvent pas être déchiffrées. Leurs fichiers chiffrés sont conservés.' : null);
     }
-  }, [sessionGeneration]);
+  }, []);
 
   const unlock = async () => {
-    if (busy) return;
+    if (unlockInFlightRef.current || busy) return;
+    unlockInFlightRef.current = true;
     setBusy(true);
     setErrorMessage(null);
     setSession((current) => transitionVaultSession(current, { type: 'begin_setup_or_unlock' }));
-    const generation = sessionGeneration;
+    const generation = sessionGenerationRef.current;
     try {
       await assertFaceIdAvailable();
       const db = await getDatabase();
+      if (generation !== sessionGenerationRef.current || AppState.currentState !== 'active') return;
+      // SecureStore presents the system Face ID sheet. iOS can temporarily
+      // mark this app inactive while that sheet is onscreen; do not treat that
+      // presentation transition as a vault lock.
+      biometricPromptInFlightRef.current = true;
       const result = await progressVaultService.setupOrUnlock(db);
+      biometricPromptInFlightRef.current = false;
       await progressVaultService.reconcileFiles(db);
-      if (generation !== sessionGeneration || AppState.currentState !== 'active') return;
+      if (generation !== sessionGenerationRef.current || AppState.currentState !== 'active') return;
       warmKeyRef.current = result.key;
+      keyRef.current = result.key;
       setKey(result.key);
       setSession((current) => transitionVaultSession(current, { type: 'unlock_succeeded', sessionId: Date.now() }));
       await loadPhotos(result.key, generation);
       await notificationHaptic();
     } catch {
+      if (generation !== sessionGenerationRef.current) return;
       setPhotos([]);
       setThumbnails({});
       setKey(null);
+      keyRef.current = null;
       setSession((current) => transitionVaultSession(current, { type: 'failed', error: 'key_unavailable' }));
-      setErrorMessage(settings?.setupState === 'configured'
-        ? 'Le coffre n’a pas pu être déverrouillé avec la biométrie actuelle. Les fichiers chiffrés restent conservés.'
+      setErrorMessage(settingsRef.current?.setupState === 'configured'
+        ? 'Le déverrouillage Face ID n’a pas abouti. Le coffre reste verrouillé et les fichiers chiffrés sont conservés.'
         : 'La configuration Face ID n’a pas abouti. Réessaie lorsque Face ID est disponible.');
     } finally {
+      biometricPromptInFlightRef.current = false;
+      unlockInFlightRef.current = false;
       setBusy(false);
       const db = await getDatabase().catch(() => null);
       if (db) setSettings(await getProgressVaultSettings(db).catch(() => null));
@@ -134,7 +148,7 @@ export function ProgressScreen() {
   };
 
   const clearPrivateViews = useCallback(() => {
-    setSessionGeneration((current) => current + 1);
+    sessionGenerationRef.current += 1;
     setPhotos([]);
     setThumbnails({});
     setSelected(null);
@@ -157,7 +171,7 @@ export function ProgressScreen() {
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active') {
+      if (shouldLockVaultForAppState(nextState, biometricPromptInFlightRef.current)) {
         clearPrivateViews();
         const delay = settingsRef.current?.autoLockMinutes ?? 0;
         const activeKey = keyRef.current;
@@ -178,18 +192,19 @@ export function ProgressScreen() {
           const locking = transitionVaultSession(current, { type: 'begin_lock' });
           return transitionVaultSession(locking, { type: 'lock_finished' });
         });
-      } else if (deadlineRef.current !== null && warmKeyRef.current && !hasAutoLockExpired(deadlineRef.current, Date.now())) {
+      } else if (nextState === 'active' && deadlineRef.current !== null && warmKeyRef.current && !hasAutoLockExpired(deadlineRef.current, Date.now())) {
         const retainedKey = warmKeyRef.current;
+        keyRef.current = retainedKey;
         setKey(retainedKey);
         setSession({ kind: 'unlocked', sessionId: Date.now() });
-        void loadPhotos(retainedKey, sessionGeneration).catch(() => {
+        void loadPhotos(retainedKey, sessionGenerationRef.current).catch(() => {
           clearPrivateViews();
           setKey(null);
           setSession({ kind: 'error', error: 'storage_failure' });
         });
         deadlineRef.current = null;
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      } else if (deadlineRef.current !== null) {
+      } else if (nextState === 'active' && deadlineRef.current !== null) {
         warmKeyRef.current = null;
         deadlineRef.current = null;
       }
@@ -197,12 +212,12 @@ export function ProgressScreen() {
     return () => {
       subscription.remove();
     };
-  }, [clearPrivateViews, loadPhotos, sessionGeneration]);
+  }, [clearPrivateViews, loadPhotos]);
 
   const addPickedPhoto = async (camera: boolean) => {
     setDateSheetVisible(false);
     if (!key) return;
-    const generation = sessionGeneration;
+    const generation = sessionGenerationRef.current;
     const sessionKey = key;
     setBusy(true);
     setErrorMessage(null);
@@ -231,7 +246,7 @@ export function ProgressScreen() {
       sourceUri = null;
       thumbnailUri = null;
       const preview = await progressVaultService.previewPhoto(photo, sessionKey, true);
-      if (generation !== sessionGeneration || keyRef.current !== sessionKey || AppState.currentState !== 'active') return;
+      if (generation !== sessionGenerationRef.current || keyRef.current !== sessionKey || AppState.currentState !== 'active') return;
       setPhotos((current) => [photo, ...current].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)));
       setThumbnails((current) => ({ ...current, [photo.id]: preview.uri }));
       await notificationHaptic();
@@ -250,12 +265,12 @@ export function ProgressScreen() {
 
   const showPhoto = async (photo: ProgressPhoto) => {
     if (!key || busy) return;
-    const generation = sessionGeneration;
+    const generation = sessionGenerationRef.current;
     const sessionKey = key;
     setBusy(true);
     try {
       const preview = await progressVaultService.previewPhoto(photo, sessionKey);
-      if (generation === sessionGeneration && AppState.currentState === 'active') setSelected(preview);
+      if (generation === sessionGenerationRef.current && AppState.currentState === 'active') setSelected(preview);
     } catch {
       setErrorMessage('Cette photo ne peut pas être déchiffrée. Le fichier chiffré est conservé.');
     } finally { setBusy(false); }
