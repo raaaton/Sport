@@ -178,7 +178,7 @@ export function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { flex: 1, gap: spacing.md },
+  content: { gap: spacing.md },
   title: { gap: spacing.xxs },
   addButton: { alignSelf: 'flex-start', minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: spacing.xxs },
   segmented: { flexDirection: 'row', padding: 3, borderRadius: radii.medium, gap: 3 },
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   sessionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   sessionText: { gap: spacing.xxs },
   exerciseNames: { gap: spacing.xxs },
-  exerciseHistory: { flex: 1, gap: spacing.md },
+  exerciseHistory: { gap: spacing.md },
   exercisePicker: { gap: spacing.xs, paddingVertical: spacing.xxs },
   exerciseOption: { minHeight: 36, justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.pill, paddingHorizontal: spacing.md },
   selectedExerciseText: { color: '#FFFFFF' },
