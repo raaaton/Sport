@@ -93,7 +93,7 @@ export function TodayScreen() {
   const selectedPlan = active ? { workoutType: active.workoutType, exercises: active.exercises.map(({ exercise }) => exercise) } : plan;
   const displayedExercises = completedToday?.exercises ?? active?.exercises ?? null;
   return (
-    <AppScreen>
+    <AppScreen safeAreaEdges={['top']}>
       <View style={styles.content}>
         <View style={styles.titleRow}>
           <View><AppText variant="largeTitle">Aujourd’hui</AppText><AppText colorRole="secondary">{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</AppText></View>
