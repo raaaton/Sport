@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, LayoutAnimation, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { getDatabase } from '@/shared/database';
 import { impactHaptic, notificationHaptic, selectionHaptic } from '@/shared/haptics';
@@ -61,10 +61,22 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
   const [valueError, setValueError] = useState<string | null>(null);
   const [weightError, setWeightError] = useState<string | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const keyboardLayoutMode = useRef(false);
 
   useEffect(() => {
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    const setEditingLayout = (visible: boolean, duration: number) => {
+      if (keyboardLayoutMode.current === visible) return;
+      keyboardLayoutMode.current = visible;
+      LayoutAnimation.configureNext({
+        duration: duration > 0 ? duration : 220,
+        update: { type: Platform.OS === 'ios' ? LayoutAnimation.Types.keyboard : LayoutAnimation.Types.easeInEaseOut },
+        create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+        delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+      });
+      setKeyboardVisible(visible);
+    };
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (event) => setEditingLayout(true, event.duration));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', (event) => setEditingLayout(false, event.duration));
     return () => { show.remove(); hide.remove(); };
   }, []);
 
@@ -253,8 +265,8 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
           <View style={[styles.entry, keyboardVisible && styles.entryEditing]}>
             <AppText variant="headline">Série {current.sets.length + 1}</AppText>
             {restEntry?.timer?.state === 'finished' ? <AppText variant="subheadline" colorRole="secondary">Repos terminé · à vous pour la série {current.sets.length + 1}</AppText> : null}
-            <NumericField label={current.exercise.trackingType === 'reps' ? 'Répétitions' : 'Durée'} placeholder="0" suffix={current.exercise.trackingType === 'reps' ? 'reps' : 'secondes'} value={value} error={valueError} onFocus={() => setKeyboardVisible(true)} onChangeText={(text) => { setValue(text); setValueError(null); }} />
-            <NumericField label="Lest (facultatif)" placeholder="0" suffix="kg" value={weight} decimal error={weightError} onFocus={() => setKeyboardVisible(true)} onChangeText={(text) => { setWeight(text); setWeightError(null); }} />
+            <NumericField label={current.exercise.trackingType === 'reps' ? 'Répétitions' : 'Durée'} placeholder="0" suffix={current.exercise.trackingType === 'reps' ? 'reps' : 'secondes'} value={value} error={valueError} onChangeText={(text) => { setValue(text); setValueError(null); }} />
+            <NumericField label="Lest (facultatif)" placeholder="0" suffix="kg" value={weight} decimal error={weightError} onChangeText={(text) => { setWeight(text); setWeightError(null); }} />
             {error ? <AppText colorRole="destructive" accessibilityRole="alert">{error}</AppText> : null}
             <PrimaryAction title="Valider la série" onPress={() => { void saveSet(); }} busy={busy} />
           </View>
@@ -262,7 +274,7 @@ export function WorkoutSessionScreen({ workoutId }: Props) {
           <View style={[styles.entry, keyboardVisible && styles.entryEditing]}>
             <AppText variant="title">Exercice terminé</AppText>
             <AppText colorRole="secondary">Comment s’est passé cet exercice ?</AppText>
-            <NumericField label="Ressenti" placeholder="8" suffix="/ 10" value={feeling} decimal onFocus={() => setKeyboardVisible(true)} onChangeText={setFeeling} />
+            <NumericField label="Ressenti" placeholder="8" suffix="/ 10" value={feeling} decimal onChangeText={setFeeling} />
             {completionAssessment?.status === 'increase_load_recommended' ? (
               <View style={styles.recommendation}>
                 <AppText variant="subheadline">Objectif atteint</AppText>
