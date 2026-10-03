@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing } from '@/shared/theme/tokens';
 import { useColorScheme } from '@/shared/theme/useColorScheme';
@@ -37,7 +38,7 @@ export function LoadPicker({ loads, selectedGrams, onSelect, disabled = false }:
         <AppSymbol name="chevron.up.chevron.down" size={16} color={palette.secondary} />
       </Pressable>
       <Modal visible={presented} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPresented(false)}>
-        <View style={[styles.sheet, { backgroundColor: palette.background }]}>
+        <SafeAreaView edges={['top', 'bottom']} style={[styles.sheet, { backgroundColor: palette.background }]}>
           <View style={[styles.sheetHeader, { borderBottomColor: palette.separator }]}>
             <Pressable accessibilityRole="button" onPress={() => setPresented(false)} hitSlop={12}>
               <AppText style={{ color: palette.accent }}>Fermer</AppText>
@@ -68,7 +69,7 @@ export function LoadPicker({ loads, selectedGrams, onSelect, disabled = false }:
               );
             }}
           />
-        </View>
+        </SafeAreaView>
       </Modal>
     </>
   );
