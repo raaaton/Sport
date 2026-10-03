@@ -131,7 +131,7 @@ export async function getLastPerformance(db: SportDatabase, exerciseId: string):
     `SELECT we.id AS workout_exercise_id,w.date,we.feeling FROM workout_exercises we
      JOIN workouts w ON w.id=we.workout_id
      WHERE we.exercise_id=? AND we.completed=1 AND w.status='completed'
-     ORDER BY w.ended_at DESC, we.sort_order DESC LIMIT 1`, exerciseId,
+     ORDER BY w.date DESC, w.ended_at DESC, we.sort_order DESC LIMIT 1`, exerciseId,
   );
   return row ? { date: row.date, feeling: row.feeling, sets: await readSets(db, row.workout_exercise_id) } : null;
 }
@@ -202,7 +202,7 @@ export async function cancelWorkout(db: SportDatabase, workoutId: string, clock:
 }
 
 export async function getCompletedWorkouts(db: SportDatabase): Promise<WorkoutSession[]> {
-  const rows = await db.getAllAsync<{ id: string }>("SELECT id FROM workouts WHERE status='completed' ORDER BY ended_at DESC");
+  const rows = await db.getAllAsync<{ id: string }>("SELECT id FROM workouts WHERE status='completed' ORDER BY date DESC, ended_at DESC");
   const sessions: WorkoutSession[] = [];
   for (const row of rows) {
     const session = await readSession(db, row.id);

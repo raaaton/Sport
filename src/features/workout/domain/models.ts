@@ -58,6 +58,17 @@ export type WorkoutSession = {
   exercises: WorkoutExercise[];
 };
 
+/** A manually recorded completed performance, validated before it reaches SQLite. */
+export type CompletedWorkoutInput = {
+  date: string;
+  workoutType: string;
+  exercises: {
+    exerciseId: string;
+    feeling: number;
+    sets: { value: number; addedWeight: number | null }[];
+  }[];
+};
+
 export type TodayPlan = { scheduleId: string; workoutType: string; exercises: Exercise[] } | null;
 
 export type WorkoutState =

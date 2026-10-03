@@ -1,6 +1,6 @@
 import type { SportDatabase } from './contract.ts';
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 const INITIAL_SCHEMA = `
 CREATE TABLE exercises (
@@ -121,6 +121,12 @@ export async function migrateAndSeed(db: SportDatabase, now: () => string = () =
         CREATE INDEX workout_rest_active ON workout_rest_periods(workout_id, state, created_at DESC);
       `);
       await tx.runAsync('INSERT INTO schema_migrations(version, applied_at) VALUES (2, ?)', now());
+    });
+  }
+  if ((applied?.version ?? 0) < 3) {
+    await db.withExclusiveTransactionAsync(async (tx) => {
+      await tx.execAsync('CREATE INDEX workouts_history ON workouts(status, date DESC, ended_at DESC);');
+      await tx.runAsync('INSERT INTO schema_migrations(version, applied_at) VALUES (3, ?)', now());
     });
   }
   await db.withExclusiveTransactionAsync(async (tx) => {
