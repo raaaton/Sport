@@ -49,10 +49,16 @@ jobs:
         run: |
           npm ci
           grep -Fq 'SportRestLockScreen(propsJSON: context.state.props)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
-          grep -Fq 'Text(timerInterval: Date.now...deadline' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
-          grep -Fq '.contentMargins(.horizontal, 2, for: .compactLeading)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'Text(timerInterval: now...max(now, endDate), pauseTime: pauseTime' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'Image(systemName: "timer")' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'Text("Rest")' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'SportRestClock(props: props, size: 14)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'SportRestClock(props: props, size: 12)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'lockScreenForeground' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          if grep -Eq '\.contentMargins\(\.horizontal, *2, *for: *\.compact(Leading|Trailing)\)|Text\(props\.state == "paused" \? "PAUSE" : "REST"\)|Text\("R"\)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift; then
+            echo "::error::The Sport Live Activity regressed to clipped margins or a state-specific label."
+            exit 1
+          fi
           if grep -Fq '.activityBackgroundTint(SportActivityStyle.lockScreenBackground)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift; then
             echo "::error::The Sport-specific Lock Screen tint overrides the system background."
             exit 1

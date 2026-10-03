@@ -90,7 +90,7 @@ if (!source.includes('var island = DynamicIsland {')) {
   source = source.replace('let island = DynamicIsland {', 'var island = DynamicIsland {');
 }
 
-const compactIslandMargins = `      if #available(iOS 17.0, *) {
+const legacyCompactIslandMargins = `      if #available(iOS 17.0, *) {
         if context.state.name == "SportRestActivity" {
           island = island
             .contentMargins(.horizontal, 2, for: .compactLeading)
@@ -102,11 +102,9 @@ const islandReturns = `      if let url = context.attributes.url.flatMap(URL.ini
         return island.widgetURL(url).keylineTint(SportActivityStyle.islandKeyline)
       }
       return island.keylineTint(SportActivityStyle.islandKeyline)`;
-if (!source.includes('.contentMargins(.horizontal, 2, for: .compactLeading)')) {
-  if (!source.includes(islandReturns)) {
-    throw new Error('Could not locate the Dynamic Island return branches to set compact margins.');
-  }
-  source = source.replace(islandReturns, `${compactIslandMargins}${islandReturns}`);
+source = source.replace(legacyCompactIslandMargins, '');
+if (!source.includes(islandReturns)) {
+  throw new Error('Could not locate the Dynamic Island return branches to set the Sport keyline.');
 }
 
 const marker = 'extension WidgetConfiguration {';
@@ -135,6 +133,8 @@ private enum SportActivityStyle {
 
 @available(iOS 16.1, *)
 private struct SportRestProps: Decodable {
+  let workoutId: String
+  let restTimerId: String
   let exerciseName: String
   let nextSetNumber: Int
   let targetSets: Int
@@ -148,6 +148,24 @@ private struct SportRestProps: Decodable {
     if let date = formatter.date(from: restEndsAt) { return date }
     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return formatter.date(from: restEndsAt)
+  }
+
+  var isRenderable: Bool {
+    guard !workoutId.isEmpty,
+          !restTimerId.isEmpty,
+          !exerciseName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+          nextSetNumber > 0,
+          targetSets >= nextSetNumber else { return false }
+
+    switch state {
+    case "running":
+      return deadline != nil
+    case "paused":
+      guard let pausedRemainingSeconds else { return false }
+      return pausedRemainingSeconds.isFinite && pausedRemainingSeconds >= 0
+    default:
+      return false
+    }
   }
 
   static func decode(_ json: String) -> SportRestProps? {
@@ -167,19 +185,17 @@ private struct SportRestClock: View {
   let size: CGFloat
 
   var body: some View {
-    Group {
-      if props.state == "paused" {
-        Text(props.pausedTime)
-      } else if let deadline = props.deadline, deadline > .now {
-        Text(timerInterval: Date.now...deadline, countsDown: true, showsHours: false)
-      } else {
-        Text("0:00")
-      }
-    }
-    .font(.system(size: size, weight: .bold, design: .rounded))
-    .monospacedDigit()
-    .lineLimit(1)
-    .minimumScaleFactor(0.75)
+    let now = Date.now
+    let endDate = props.state == "paused"
+      ? now.addingTimeInterval(max(0, props.pausedRemainingSeconds ?? 0))
+      : (props.deadline ?? now)
+    let pauseTime = props.state == "paused" ? now : nil
+
+    Text(timerInterval: now...max(now, endDate), pauseTime: pauseTime, countsDown: true, showsHours: false)
+      .font(.system(size: size, weight: .bold, design: .rounded))
+      .monospacedDigit()
+      .lineLimit(1)
+      .minimumScaleFactor(0.75)
   }
 }
 
@@ -189,34 +205,40 @@ private struct SportRestIslandSection: View {
   let sectionName: String
 
   var body: some View {
-    if let props = SportRestProps.decode(propsJSON) {
+    if let props = SportRestProps.decode(propsJSON), props.isRenderable {
       switch sectionName {
       case "compactLeading":
-        Text(props.state == "paused" ? "PAUSE" : "REST")
-          .font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+        HStack(spacing: 4) {
+          Image(systemName: "timer")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(SportActivityStyle.islandKeyline)
+          Text("Rest")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white)
+        }
       case "compactTrailing":
         SportRestClock(props: props, size: 14).foregroundStyle(.white)
       case "minimal":
-        Text("R").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+        SportRestClock(props: props, size: 12).foregroundStyle(.white)
       case "expandedLeading":
         VStack(alignment: .leading, spacing: 4) {
-          Text(props.exerciseName).font(.subheadline.weight(.semibold)).lineLimit(1).foregroundStyle(.white)
+          HStack(spacing: 5) {
+            Image(systemName: "timer").foregroundStyle(SportActivityStyle.islandKeyline)
+            Text("Rest").foregroundStyle(.white)
+          }.font(.subheadline.weight(.semibold))
+          Text(props.exerciseName).font(.caption).lineLimit(1).foregroundStyle(.white.opacity(0.84))
           Text("Prochaine · \\(props.nextSetNumber)/\\(props.targetSets)")
             .font(.caption).lineLimit(1).foregroundStyle(.white.opacity(0.72))
         }
       case "expandedTrailing":
-        VStack(alignment: .trailing, spacing: 3) {
-          Text(props.state == "paused" ? "PAUSE" : "REST")
-            .font(.caption2.weight(.bold)).foregroundStyle(.white.opacity(0.72))
-          SportRestClock(props: props, size: 22).foregroundStyle(.white)
-        }
+        SportRestClock(props: props, size: 22).foregroundStyle(.white)
       case "expandedBottom":
         EmptyView()
       default:
         EmptyView()
       }
     } else {
-      Text("REST").font(.caption.weight(.bold)).foregroundStyle(.white)
+      EmptyView()
     }
   }
 }
@@ -226,28 +248,34 @@ private struct SportRestLockScreen: View {
   let propsJSON: String
 
   var body: some View {
-    if let props = SportRestProps.decode(propsJSON) {
+    if let props = SportRestProps.decode(propsJSON), props.isRenderable {
       HStack(alignment: .center, spacing: 16) {
         VStack(alignment: .leading, spacing: 4) {
-          Text(props.exerciseName).font(.headline.weight(.semibold)).lineLimit(1)
+          Label("Rest", systemImage: "timer")
+            .font(.headline.weight(.semibold))
+            .labelStyle(SportRestLockScreenLabelStyle())
+          Text(props.exerciseName).font(.subheadline.weight(.medium)).lineLimit(1)
           Text("Prochaine série · \\(props.nextSetNumber)/\\(props.targetSets)")
             .font(.subheadline).foregroundStyle(SportActivityStyle.lockScreenSecondaryForeground).lineLimit(1)
         }
         Spacer(minLength: 8)
-        VStack(alignment: .trailing, spacing: 3) {
-          Text(props.state == "paused" ? "PAUSE" : "REST")
-            .font(.caption2.weight(.bold)).foregroundStyle(SportActivityStyle.lockScreenSecondaryForeground)
-          SportRestClock(props: props, size: 30)
-        }
+        SportRestClock(props: props, size: 30)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.vertical, 2)
       .foregroundStyle(SportActivityStyle.lockScreenForeground)
     } else {
-      Text("Repos en cours")
-        .font(.headline)
-        .foregroundStyle(SportActivityStyle.lockScreenForeground)
-        .frame(maxWidth: .infinity, alignment: .leading)
+      EmptyView()
+    }
+  }
+}
+
+@available(iOS 16.1, *)
+private struct SportRestLockScreenLabelStyle: LabelStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    HStack(spacing: 5) {
+      configuration.icon.foregroundStyle(SportActivityStyle.islandKeyline)
+      configuration.title.foregroundStyle(SportActivityStyle.lockScreenForeground)
     }
   }
 }
@@ -274,10 +302,14 @@ if (existingNativeViewsStart !== -1 && existingNativeViewsEnd !== -1) {
 }
 
 if (!source.includes('SportRestLockScreen(propsJSON: context.state.props)') ||
-    !source.includes('Text(timerInterval: Date.now...deadline') ||
-    !source.includes('Text(props.state == "paused" ? "PAUSE" : "REST")') ||
-    !source.includes('.contentMargins(.horizontal, 2, for: .compactLeading)') ||
+    !source.includes('Text(timerInterval: now...max(now, endDate), pauseTime: pauseTime') ||
+    !source.includes('Image(systemName: "timer")') ||
+    !source.includes('Text("Rest")') ||
+    source.includes('.contentMargins(.horizontal, 2, for: .compactLeading)') ||
+    source.includes('Text(props.state == "paused" ? "PAUSE" : "REST")') ||
+    source.includes('Text("R")') ||
     !source.includes('lockScreenForeground') ||
+    !source.includes('props.isRenderable') ||
     source.includes('.activityBackgroundTint(SportActivityStyle.lockScreenBackground)') ||
     !source.includes('.keylineTint(SportActivityStyle.islandKeyline)')) {
   throw new Error('The Sport native Live Activity presentation patch was not applied completely.');
