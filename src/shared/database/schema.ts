@@ -1,6 +1,6 @@
 import type { SportDatabase } from './contract.ts';
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 const INITIAL_SCHEMA = `
 CREATE TABLE exercises (
@@ -183,9 +183,33 @@ export async function migrateAndSeed(db: SportDatabase, now: () => string = () =
       await migrateWorkoutReminderTimesToSchedules(tx, now());
     });
   }
+  if ((applied?.version ?? 0) < 7) {
+    await db.withExclusiveTransactionAsync(async (tx) => {
+      await tx.execAsync(`
+        CREATE TABLE progress_vault_settings (
+          id INTEGER PRIMARY KEY NOT NULL CHECK (id = 1),
+          setup_state TEXT NOT NULL DEFAULT 'unconfigured' CHECK (setup_state IN ('unconfigured','pending','configured')),
+          key_id TEXT,
+          auto_lock_minutes INTEGER NOT NULL DEFAULT 0 CHECK (auto_lock_minutes IN (0,1,5)),
+          CHECK ((setup_state='unconfigured' AND key_id IS NULL) OR (setup_state IN ('pending','configured') AND key_id IS NOT NULL))
+        );
+        CREATE TABLE progress_photos (
+          id TEXT PRIMARY KEY NOT NULL,
+          photo_date TEXT NOT NULL CHECK (length(photo_date)=10),
+          encrypted_file_id TEXT NOT NULL UNIQUE,
+          encrypted_thumbnail_id TEXT NOT NULL UNIQUE,
+          mime_type TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX progress_photos_by_date ON progress_photos(photo_date DESC, created_at DESC);
+      `);
+      await tx.runAsync('INSERT INTO schema_migrations(version, applied_at) VALUES (7, ?)', now());
+    });
+  }
   await db.withExclusiveTransactionAsync(async (tx) => {
     await tx.runAsync('INSERT OR IGNORE INTO weight_inventory_settings(id,base_weight_grams) VALUES (1,3000)');
     await tx.runAsync('INSERT OR IGNORE INTO notification_preferences(id,workout_enabled,photo_enabled,workout_hour,photo_hour) VALUES (1,0,0,NULL,6)');
+    await tx.runAsync("INSERT OR IGNORE INTO progress_vault_settings(id,setup_state,key_id,auto_lock_minutes) VALUES (1,'unconfigured',NULL,0)");
     const weightedItems = [
       { id: 'river-inverted', name: "La rivière à l'envers", grams: 900, order: 0 },
       { id: 'cars-1200', name: '1200 voitures', grams: 2100, order: 1 },

@@ -41,7 +41,7 @@ test('migration and seed are idempotent and create the documented schedule', asy
   await migrateAndSeed(db);
   assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM exercises')).count, 5);
   assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM workout_schedules')).count, 3);
-  assert.equal((await db.getFirstAsync('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1')).version, 6);
+  assert.equal((await db.getFirstAsync('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1')).version, 7);
   assert.equal((await db.getFirstAsync("SELECT target_added_weight FROM exercises WHERE id='bulgarians'")).target_added_weight, null);
   await db.runAsync("UPDATE exercises SET target_added_weight=6 WHERE id='bulgarians'");
   await migrateAndSeed(db);
@@ -70,7 +70,7 @@ test('version 2 migration associates existing version 1 workouts without deletin
   assert.equal(migrated.schedule_id, 'old-tuesday');
   assert.equal(migrated.status, 'completed');
   assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM workouts')).count, 1);
-  assert.equal((await db.getFirstAsync('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1')).version, 6);
+  assert.equal((await db.getFirstAsync('SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1')).version, 7);
 });
 
 test('starts one ordered workout and resumes it without duplicating rows', async () => {

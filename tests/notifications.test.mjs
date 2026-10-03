@@ -42,7 +42,7 @@ async function setup() {
 test('migration v6 seeds opt-in notification defaults and preserves them across reopen', async () => {
   const db = await setup();
   assert.deepEqual(await getNotificationPreferences(db), { workoutEnabled: false, photoEnabled: false, photoTimeMinutes: 360 });
-  assert.equal((await db.getFirstAsync('SELECT MAX(version) AS version FROM schema_migrations')).version, 6);
+  assert.equal((await db.getFirstAsync('SELECT MAX(version) AS version FROM schema_migrations')).version, 7);
   const initialSchedules = await getEditableWorkoutSchedules(db);
   assert.ok(initialSchedules.every((schedule) => schedule.reminderTimeMinutes === null));
   await updateNotificationPreferences(db, { workoutEnabled: true, photoTimeMinutes: 1170, photoEnabled: true });
