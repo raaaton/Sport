@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.raaaton.sport"
+      "bundleIdentifier": "com.raaaton.sport",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": true
+      }
     },
     "android": {
       "adaptiveIcon": {
