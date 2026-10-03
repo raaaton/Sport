@@ -10,12 +10,15 @@ Sport est une application personnelle de suivi d'entraînement, conçue d'abord 
 | Séances, séries, persistance et repos | Validée sur iPhone |
 | Progression et historique 2.0 | Validée sur iPhone |
 | Système de lest | Implémenté; validation iPhone à faire |
+| Notifications locales | Implémentées; validation iPhone à faire |
 
 Les fonctions livrées comprennent Aujourd'hui, le démarrage et la reprise d'une séance, la saisie des séries, le timer de repos, l'historique avec ajout/modification/suppression, la progression basée sur les performances, et le calcul des charges réalisables à partir du matériel.
 
 Le système de lest utilise un sac fixe de 3,0 kg et des objets dont les poids sont combinés à la demande. Les séances conservent la charge et sa composition telles qu'elles ont été enregistrées, même si l'inventaire change ensuite.
 
-Le coffre photo, Face ID, les notifications, Live Activities / Dynamic Island, Shortcuts et iCloud ne sont pas encore implémentés.
+Les rappels locaux de séance sont opt-in et utilisent les jours actifs du planning. Comme aucun horaire de séance n'était défini, ils restent désactivés jusqu'au choix d'une heure. Les rappels de progression photo sont mensuels, à 06:00 par défaut, et ne contiennent aucune information privée. Les requêtes de séance sont programmées concrètement sur 28 jours et ignorent une date où une séance a déjà commencé.
+
+Le coffre photo, Face ID, Live Activities / Dynamic Island, Shortcuts et iCloud ne sont pas encore implémentés.
 
 ## Développement
 

@@ -46,9 +46,9 @@ Add opt-in local workout and monthly photo reminders derived from SQLite. Manage
 - [x] Read the project/product/design/ExecPlan guidance, recent progression/history/weight plans, current schedule schema, workout lifecycle, Settings routes, Expo Notifications version and configuration.
 - [x] Add preferences migration, pure planner, and tests.
 - [x] Implement notification service and managed-request reconciliation.
-- [ ] Build the Settings UI for switches, status, and hour selection.
-- [ ] Add app/workout synchronization and tap routing.
-- [ ] Update docs and README; run all requested verification.
+- [x] Build the Settings UI for switches, status, and hour selection.
+- [x] Add app/workout synchronization and tap routing.
+- [x] Update docs and README; run all requested verification.
 
 ## Implementation notes
 
@@ -56,3 +56,5 @@ Add opt-in local workout and monthly photo reminders derived from SQLite. Manage
 - Time selection will use native `ActionSheetIOS` rather than adding a picker dependency. The first workout reminder stays off until the user selects an hour; the first photo reminder hour is 06:00 as specified.
 - Schema v5 stores opt-in flags, a nullable workout hour, and the historical 06:00 photo hour. The pure planner builds 28 days of local calendar occurrences, skips any date with an existing session row, and emits one recurring first-of-month photo spec. DST-boundary, schedule status, month/year change, and managed identifier tests are in place.
 - The Expo adapter checks the iOS-specific authorization enum, never prompts from synchronization, cancels only the `sport.local.` namespace, and uses one-shot local calendar triggers for workouts plus a repeating monthly calendar trigger for photos. The handler presents foreground banner/list without sound or badge.
+- Settings persists the preference before resynchronizing. The root runtime syncs on launch and app activation, routes only recognized workout/photo payloads, and clears the consumed tap response. Starting, completing, or cancelling a workout also resynchronizes, so the current day's concrete occurrence is removed once a session starts. Workout flow, timer, tabs, and history data are unchanged.
+- Automated verification completed: `npx tsc --noEmit`, `npm run lint`, `npm test` (all 6 suites pass), `npx expo install --check`, `npx expo export --platform ios`, and `git diff --check`. The install check used Expo's local dependency map because networking is disabled. Physical iPhone permission and delivery tests remain outstanding.

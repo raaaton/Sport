@@ -171,12 +171,16 @@ Changing enrolled biometrics may invalidate the protected key. The application m
 
 ## 12. Notifications
 
-The app may schedule local notifications for:
+The app schedules opt-in local notifications on this device for:
 
 * workout sessions
 * monthly progress photos
 
 Notification content must never contain private progress-photo information.
+
+Workout reminders are derived from active weekly schedule entries. Since no workout reminder time was defined in the schedule model, reminders stay disabled until the user selects one shared hour in Settings. The app schedules concrete occurrences 28 days ahead and omits any schedule date with an existing workout row, including an active workout, so starting a session suppresses that day's reminder. Changes to notification preferences, schedule, app foreground state, or workout lifecycle trigger a full resynchronization of requests managed by Sport.
+
+Photo reminders occur on the first day of each month at 06:00 by default, with an editable hour. Notification permission is requested only when the user enables a reminder. A denied iOS permission is not repeatedly requested; Settings explains how to open iOS Settings instead. Notification taps open Today or Progress, never a private photo. While Sport is foregrounded, local reminders may appear as a banner and in Notification Center without sound or badge.
 
 ## 13. Apple integrations
 

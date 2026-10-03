@@ -14,6 +14,8 @@ The four primary sections are Today, History, Progress, and Settings. Screen com
 
 Settings uses an iOS grouped-list hierarchy with sections for training, reminders, and app preferences. Selecting a row pushes a native stack detail page with the standard back button. The Lest page edits the user's weighted items and previews the loads calculated from active equipment.
 
+Settings > Notifications uses grouped iOS-style rows for workout and monthly photo reminder switches, their selected hours, and the current iOS authorization state. Permission is requested only after an explicit opt-in. If iOS has denied it, the page explains the state and links to system settings. Workout reminder time is intentionally unset until chosen because the schedule had no prior hour; the historical photo reminder time is 06:00. Foreground reminders appear in the banner and notification list without sound or badge. Photo reminder copy is generic and contains no private vault data.
+
 ## Workout flow
 
 Today shows the scheduled session, set/repetition or duration targets, an optional configured load target, and a quieter last-performance summary. A completed session is clearly marked; its ellipsis action offers a confirmed restart while preserving the finished record. Starting a planned session first opens a preparation screen with the ordered exercises and recent performance before the explicit start action creates a workout.
