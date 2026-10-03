@@ -60,8 +60,8 @@ Manage the fixed 3.000 kg base bag and user-owned weighted objects in SQLite, ge
 - [x] Implement schema/inventory/combinations/snapshots and tests.
 - [x] Integrate concrete next-load assessment into Today and preparation.
 - [x] Implement workout selector and History composition display.
-- [ ] Implement Settings management and available-load preview.
-- [ ] Run all requested checks and update final implementation notes.
+- [x] Implement Settings management and available-load preview.
+- [x] Run all requested checks and update final implementation notes.
 
 ## Implementation notes
 
@@ -70,3 +70,5 @@ Manage the fixed 3.000 kg base bag and user-owned weighted objects in SQLite, ge
 - The first domain test pass caught an omitted bag-only combination and a nullable TypeScript value at the insert boundary; both were fixed before committing this layer. Combination generation explicitly includes bodyweight and the base bag, then all unique bag-plus-object subsets.
 - Today and preparation now call the same pure load-aware progression assessment used later by the workout picker. Eligibility remains delegated to the existing progression engine; these screens show the selected concrete target and explain when no heavier available load exists.
 - The workout load input is a one-tap native page sheet backed by available combinations; each saved set carries both grams and a frozen composition snapshot. History detail exposes those snapshots, while existing performance values use their stored grams for stable display.
+- Settings > Lest now edits inventory items, previews every current load and composition, and recomputes the list after add/edit/enable/disable/delete. The fixed 3.0 kg bag is displayed without an edit control. Product and design docs now describe the inventory, picker, progression target, and snapshot behavior.
+- Final verification passed: TypeScript, ESLint, all five test files, iOS Expo export, and `git diff --check`. Expo dependency validation used the local SDK map because network access was disabled; it reported dependencies up to date, with the remote check unavailable. Physical iPhone behavior remains for the user to verify.

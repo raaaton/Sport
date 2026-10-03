@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
 import { deleteWeightItem, createWeightItem, getAvailableLoads, getWeightInventory, setWeightItemActive, updateWeightItem } from '../src/features/weights/data/weightRepository.ts';
-import { assessAvailableLoadProgression, formatKilograms, formatLoad, formatLoadComposition, generateAvailableLoads, parseWeightKilograms, validateWeightItemName } from '../src/features/weights/domain/weightSystem.ts';
+import { assessAvailableLoadProgression, formatKilograms, formatLoad, formatLoadComposition, formatRecordedLoad, generateAvailableLoads, parseWeightKilograms, validateWeightItemName } from '../src/features/weights/domain/weightSystem.ts';
 import { getWorkout, recordSet, startOrResumeToday } from '../src/features/workout/data/workoutRepository.ts';
 import { migrateAndSeed } from '../src/shared/database/schema.ts';
 
@@ -95,6 +95,7 @@ test('validates and formats object weights without floating-point display artifa
   assert.equal(formatKilograms(3000), '3.0');
   assert.equal(formatLoad(0), 'Poids du corps');
   assert.equal(formatLoad(6600), '+6.6 kg');
+  assert.equal(formatRecordedLoad(5.399999999999999), '+5.4 kg');
 });
 
 test('selects the smallest strictly higher available load and keeps progression rules unchanged', () => {

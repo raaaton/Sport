@@ -1,9 +1,5 @@
-import { SettingsDetailScreen } from '@/features/settings/screens/SettingsDetailScreen';
+import { WeightInventoryScreen } from '@/features/weights/screens/WeightInventoryScreen';
 
 export default function WeightedItemsSettingsRoute() {
-  return (
-    <SettingsDetailScreen>
-      Gérez les objets lestés disponibles et leur poids.
-    </SettingsDetailScreen>
-  );
+  return <WeightInventoryScreen />;
 }

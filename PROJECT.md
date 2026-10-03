@@ -111,18 +111,17 @@ The user must be able to modify the default rest duration.
 
 ## 8. Added weight
 
-Initial weight items:
+The fixed base backpack weighs 3.0 kg. It is added exactly once to each weighted load. Bodyweight is a separate 0 kg option. Initial one-unit items:
 
-* Base backpack — 3.0 kg
 * La rivière à l'envers — 0.9 kg
 * 1200 voitures — 2.1 kg
-* 2 programming books — 1.5 kg
+* 2 livres programmation — 1.5 kg
 
-The application must allow the user to create, edit, enable and disable weight items.
+The application must allow the user to create, rename, change the weight of, enable, disable and delete weight items.
 
-The application must calculate combinations of enabled items.
+The application must calculate unique combinations of active items using integer grams, and sort available loads in ascending order. When progression recommends an increase, the next goal is the smallest available load strictly above the greatest load recorded in the previous performance. If none exists, do not invent a value and explain that no heavier combination is available.
 
-The composition of a selected load may be stored with the workout record so historical records remain understandable even if the weight inventory changes later.
+Store each selected load and a snapshot of its component names and weights with the workout set. Inventory changes affect future combinations only; historical loads and snapshots must not be recalculated.
 
 ## 9. History
 
