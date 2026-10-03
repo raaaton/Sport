@@ -12,6 +12,10 @@ if (packageJson.version !== '57.0.22') {
 }
 
 let source = readFileSync(sourcePath, 'utf8');
+if (!source.includes('import UIKit')) {
+  if (!source.includes('import SwiftUI')) throw new Error('Could not locate SwiftUI import in expo-widgets activity renderer.');
+  source = source.replace('import SwiftUI', 'import SwiftUI\nimport UIKit');
+}
 const sectionBefore = `    if let node = nodes[sectionName] as? [String: Any] {
       WidgetsDynamicView(name: context.activityID, kind: .liveActivity, node: node)
     } else {
@@ -40,12 +44,33 @@ const bannerAfter = `    if context.state.name == "SportRestActivity" {
     } else {
       EmptyView()
     }`;
+const bannerContentBefore = `      if let url = context.attributes.url.flatMap(URL.init(string:)) {
+        banner.widgetURL(url)
+      } else {
+        banner
+      }`;
+const bannerContentAfter = `      if let url = context.attributes.url.flatMap(URL.init(string:)) {
+        banner.widgetURL(url)
+          .activityBackgroundTint(Color(uiColor: .secondarySystemBackground))
+          .activitySystemActionForegroundColor(Color.primary)
+      } else {
+        banner
+          .activityBackgroundTint(Color(uiColor: .secondarySystemBackground))
+          .activitySystemActionForegroundColor(Color.primary)
+      }`;
 
 if (!source.includes('SportRestIslandSection(propsJSON: context.state.props')) {
   if (!source.includes(sectionBefore) || !source.includes(bannerBefore)) {
     throw new Error('Could not locate the expected expo-widgets live activity rendering branches.');
   }
   source = source.replace(sectionBefore, sectionAfter).replace(bannerBefore, bannerAfter);
+}
+
+if (!source.includes('.activityBackgroundTint(Color(uiColor: .secondarySystemBackground))')) {
+  if (!source.includes(bannerContentBefore)) {
+    throw new Error('Could not locate the expected Lock Screen banner modifiers in expo-widgets.');
+  }
+  source = source.replace(bannerContentBefore, bannerContentAfter);
 }
 
 const marker = 'extension WidgetConfiguration {';
@@ -175,8 +200,9 @@ if (!source.includes('private struct SportRestProps: Decodable')) {
 }
 
 if (!source.includes('SportRestLockScreen(propsJSON: context.state.props)') ||
-    !source.includes('Text(timerInterval: Date.now...deadline')) {
-  throw new Error('The Sport native Live Activity layout patch was not applied completely.');
+    !source.includes('Text(timerInterval: Date.now...deadline') ||
+    !source.includes('.activityBackgroundTint(Color(uiColor: .secondarySystemBackground))')) {
+  throw new Error('The Sport native Live Activity presentation patch was not applied completely.');
 }
 
 writeFileSync(sourcePath, source);
