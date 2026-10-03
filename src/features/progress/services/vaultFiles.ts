@@ -8,6 +8,7 @@ export type VaultFiles = {
   read(id: string): Promise<Uint8Array>;
   delete(id: string): Promise<void>;
   deleteAll(): Promise<void>;
+  listIds(): Promise<string[]>;
   uri(id: string): string;
 };
 
@@ -26,9 +27,14 @@ export const privateVaultFiles: VaultFiles = {
     directory.create({ intermediates: true, idempotent: true });
     const file = new File(directory, `${id}.spv`);
     file.create({ intermediates: true, overwrite: true });
-    file.write(encrypted);
-    await protectVaultPath(directory.uri);
-    await protectVaultPath(file.uri);
+    try {
+      await protectVaultPath(directory.uri);
+      await protectVaultPath(file.uri);
+      file.write(encrypted);
+    } catch (error) {
+      if (file.exists) file.delete();
+      throw error;
+    }
   },
   async read(id) {
     validateId(id);
@@ -44,6 +50,11 @@ export const privateVaultFiles: VaultFiles = {
   async deleteAll() {
     const directory = getDirectory();
     if (directory.exists) directory.delete();
+  },
+  async listIds() {
+    const directory = getDirectory();
+    if (!directory.exists) return [];
+    return directory.list().filter((entry): entry is File => entry instanceof File && entry.extension === '.spv').map((file) => file.name.slice(0, -4));
   },
   uri(id) {
     validateId(id);
