@@ -62,7 +62,7 @@ private func makeDatabase(rows: [(id: String, state: String, startedAt: String?,
   for row in rows {
     let startedAt = row.startedAt.map { "'\(escapedSQL($0))'" } ?? "NULL"
     let deadlineAt = row.deadlineAt.map { "'\(escapedSQL($0))'" } ?? "NULL"
-    let paused = row.paused.map(String.init) ?? "NULL"
+    let paused = row.paused.map { String($0) } ?? "NULL"
     let endedAt = row.endedAt.map { "'\(escapedSQL($0))'" } ?? "NULL"
     let sql = "INSERT INTO workout_rest_periods(id,duration_seconds,state,started_at,deadline_at,paused_remaining_seconds,ended_at) VALUES ('\(escapedSQL(row.id))',180,'\(escapedSQL(row.state))',\(startedAt),\(deadlineAt),\(paused),\(endedAt));"
     guard sqlite3_exec(database, sql, nil, nil, &errorMessage) == SQLITE_OK else {

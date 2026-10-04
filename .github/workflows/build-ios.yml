@@ -64,6 +64,13 @@ jobs:
             exit 1
           fi
           grep -Fq '.keylineTint(SportActivityStyle.islandKeyline)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'SportRestControls(props: props, activityID: activityID)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'action: "skip"' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'struct SportRestTimerActionIntent: LiveActivityIntent' node_modules/expo-widgets/ios/Widgets/AppIntent.swift
+          grep -Fq 'Activity<LiveActivityAttributes>.activities' node_modules/expo-widgets/ios/Widgets/AppIntent.swift
+          grep -Fq 'SportRestTimerStore.apply(' node_modules/expo-widgets/ios/Widgets/AppIntent.swift
+          swiftc modules/sport-live-activity/SportRestTimerStore.swift tests/native/SportRestTimerStoreTests.swift -lsqlite3 -o "$RUNNER_TEMP/SportRestTimerStoreTests"
+          "$RUNNER_TEMP/SportRestTimerStoreTests"
           npx expo prebuild --platform ios --no-install
 
       - name: Verify generated Live Activity target and install Pods

@@ -48,7 +48,7 @@
     "android": "expo start --android --go",
     "ios": "expo start --ios --go",
     "web": "expo start --web",
-    "postinstall": "node scripts/apply-expo-widgets-text-modifier-fix.mjs && node scripts/apply-sport-native-live-activity-layout.mjs",
+    "postinstall": "node scripts/apply-expo-widgets-text-modifier-fix.mjs && node scripts/apply-sport-native-live-activity-layout.mjs && node scripts/apply-sport-rest-live-activity-actions.mjs",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },

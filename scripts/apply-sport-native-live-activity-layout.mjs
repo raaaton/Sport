@@ -22,7 +22,7 @@ const sectionBefore = `    if let node = nodes[sectionName] as? [String: Any] {
       EmptyView()
     }`;
 const sectionAfter = `    if context.state.name == "SportRestActivity" {
-      SportRestIslandSection(propsJSON: context.state.props, sectionName: sectionName)
+      SportRestIslandSection(propsJSON: context.state.props, sectionName: sectionName, activityID: context.activityID)
     } else if let node = nodes[sectionName] as? [String: Any] {
       WidgetsDynamicView(name: context.activityID, kind: .liveActivity, node: node)
     } else {
@@ -36,7 +36,7 @@ const bannerBefore = `    if #available(iOS 18.0, *) {
       EmptyView()
     }`;
 const bannerAfter = `    if context.state.name == "SportRestActivity" {
-      SportRestLockScreen(propsJSON: context.state.props)
+      SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)
     } else if #available(iOS 18.0, *) {
       LiveActivityBanner(context: context, nodes: nodes)
     } else if let node = nodes["banner"] as? [String: Any] {
@@ -61,6 +61,15 @@ if (!source.includes('SportRestIslandSection(propsJSON: context.state.props')) {
   }
   source = source.replace(sectionBefore, sectionAfter).replace(bannerBefore, bannerAfter);
 }
+source = source
+  .replace(
+    'SportRestIslandSection(propsJSON: context.state.props, sectionName: sectionName)',
+    'SportRestIslandSection(propsJSON: context.state.props, sectionName: sectionName, activityID: context.activityID)',
+  )
+  .replace(
+    'SportRestLockScreen(propsJSON: context.state.props)',
+    'SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)',
+  );
 
 const bannerContentWithSportTint = `      if let url = context.attributes.url.flatMap(URL.init(string:)) {
         banner.widgetURL(url)
@@ -203,6 +212,7 @@ private struct SportRestClock: View {
 private struct SportRestIslandSection: View {
   let propsJSON: String
   let sectionName: String
+  let activityID: String
 
   var body: some View {
     if let props = SportRestProps.decode(propsJSON), props.isRenderable {
@@ -233,7 +243,7 @@ private struct SportRestIslandSection: View {
       case "expandedTrailing":
         SportRestClock(props: props, size: 22).foregroundStyle(.white)
       case "expandedBottom":
-        EmptyView()
+        SportRestControls(props: props, activityID: activityID)
       default:
         EmptyView()
       }
@@ -246,20 +256,24 @@ private struct SportRestIslandSection: View {
 @available(iOS 16.1, *)
 private struct SportRestLockScreen: View {
   let propsJSON: String
+  let activityID: String
 
   var body: some View {
     if let props = SportRestProps.decode(propsJSON), props.isRenderable {
-      HStack(alignment: .center, spacing: 16) {
-        VStack(alignment: .leading, spacing: 4) {
-          Label("Rest", systemImage: "timer")
-            .font(.headline.weight(.semibold))
-            .labelStyle(SportRestLockScreenLabelStyle())
-          Text(props.exerciseName).font(.subheadline.weight(.medium)).lineLimit(1)
-          Text("Prochaine série · \\(props.nextSetNumber)/\\(props.targetSets)")
-            .font(.subheadline).foregroundStyle(SportActivityStyle.lockScreenSecondaryForeground).lineLimit(1)
+      VStack(alignment: .leading, spacing: 14) {
+        HStack(alignment: .center, spacing: 16) {
+          VStack(alignment: .leading, spacing: 4) {
+            Label("Rest", systemImage: "timer")
+              .font(.headline.weight(.semibold))
+              .labelStyle(SportRestLockScreenLabelStyle())
+            Text(props.exerciseName).font(.subheadline.weight(.medium)).lineLimit(1)
+            Text("Prochaine série · \\(props.nextSetNumber)/\\(props.targetSets)")
+              .font(.subheadline).foregroundStyle(SportActivityStyle.lockScreenSecondaryForeground).lineLimit(1)
+          }
+          Spacer(minLength: 8)
+          SportRestClock(props: props, size: 30)
         }
-        Spacer(minLength: 8)
-        SportRestClock(props: props, size: 30)
+        SportRestControls(props: props, activityID: activityID)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.vertical, 2)
@@ -276,6 +290,41 @@ private struct SportRestLockScreenLabelStyle: LabelStyle {
     HStack(spacing: 5) {
       configuration.icon.foregroundStyle(SportActivityStyle.islandKeyline)
       configuration.title.foregroundStyle(SportActivityStyle.lockScreenForeground)
+    }
+  }
+}
+
+@available(iOS 16.1, *)
+private struct SportRestControls: View {
+  let props: SportRestProps
+  let activityID: String
+
+  var body: some View {
+    if #available(iOS 17.0, *) {
+      HStack(spacing: 10) {
+        Button(intent: SportRestTimerActionIntent(
+          activityID: activityID,
+          restTimerID: props.restTimerId,
+          action: props.state == "paused" ? "resume" : "pause"
+        )) {
+          Label(props.state == "paused" ? "Reprendre" : "Pause", systemImage: props.state == "paused" ? "play.fill" : "pause.fill")
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(SportActivityStyle.islandKeyline)
+
+        Button(intent: SportRestTimerActionIntent(
+          activityID: activityID,
+          restTimerID: props.restTimerId,
+          action: "skip"
+        )) {
+          Label("Stop", systemImage: "stop.fill")
+        }
+        .buttonStyle(.bordered)
+        .tint(SportActivityStyle.islandKeyline)
+      }
+      .controlSize(.small)
+    } else {
+      EmptyView()
     }
   }
 }
@@ -301,7 +350,12 @@ if (existingNativeViewsStart !== -1 && existingNativeViewsEnd !== -1) {
   source = source.replace(marker, `${nativeViews}${marker}`);
 }
 
-if (!source.includes('SportRestLockScreen(propsJSON: context.state.props)') ||
+if (!source.includes('SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)') ||
+    !source.includes('SportRestIslandSection(propsJSON: context.state.props, sectionName: sectionName, activityID: context.activityID)') ||
+    !source.includes('SportRestControls(props: props, activityID: activityID)') ||
+    !source.includes('SportRestTimerActionIntent(') ||
+    !source.includes('action: "skip"') ||
+    !source.includes('props.state == "paused" ? "resume" : "pause"') ||
     !source.includes('Text(timerInterval: now...max(now, endDate), pauseTime: pauseTime') ||
     !source.includes('Image(systemName: "timer")') ||
     !source.includes('Text("Rest")') ||
