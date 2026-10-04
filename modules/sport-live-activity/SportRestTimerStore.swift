@@ -124,7 +124,8 @@ enum SportRestTimerStore {
     let deadlineAt = try columnDate(statement, at: 4)
     let pausedRemainingSeconds = columnDouble(statement, at: 5)
     let endedAt = try columnDate(statement, at: 6)
-    if let pausedRemainingSeconds, !pausedRemainingSeconds.isFinite || pausedRemainingSeconds < 0 {
+    if let pausedRemainingSeconds,
+       !pausedRemainingSeconds.isFinite || pausedRemainingSeconds < 0 || pausedRemainingSeconds > Double(durationSeconds) {
       throw SportRestTimerStoreError.malformedRow("paused remaining time")
     }
     if state == .running, deadlineAt == nil {

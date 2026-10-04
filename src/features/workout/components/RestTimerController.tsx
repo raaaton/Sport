@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 import { getDatabase } from '@/shared/database';
 import { notificationHaptic } from '@/shared/haptics';
 import type { RestTimer } from '../domain/models';
-import { transitionPersistedRestTimer } from '../data/restTimerRepository';
+import { getRestTimerAfterSet, transitionPersistedRestTimer } from '../data/restTimerRepository';
 import { RestTimerPanel } from './RestTimerPanel';
 
 type Props = {
@@ -56,25 +56,47 @@ export function RestTimerController({ timer, nextSetNumber, actionBusy = false, 
     }
   }, [onTimerChange, player, timer.id, timer.state]);
 
+  const reloadPersistedTimer = useCallback(async () => {
+    try {
+      const persisted = await getRestTimerAfterSet(
+        await getDatabase(),
+        timer.workoutExerciseId,
+        timer.afterSetNumber,
+      );
+      if (persisted?.id !== timer.id) return;
+      onTimerChange(persisted);
+    } catch {
+      // The workout remains usable if a foreground reconciliation read fails.
+    }
+  }, [onTimerChange, timer.afterSetNumber, timer.id, timer.workoutExerciseId]);
+
   useEffect(() => {
-    if (timer.state !== 'running') return undefined;
+    if (!['ready', 'running', 'paused'].includes(timer.state)) return undefined;
+
     const updateDisplay = () => {
       setNowMs(Date.now());
       void resolveExpiry();
     };
-    updateDisplay();
-    let interval: ReturnType<typeof setInterval> | undefined = setInterval(updateDisplay, 1000);
-    const appState = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const enterActiveState = () => {
+      void reloadPersistedTimer();
+      if (timer.state === 'running') {
         updateDisplay();
         if (!interval) interval = setInterval(updateDisplay, 1000);
+      }
+    };
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        enterActiveState();
       } else if (interval) {
         clearInterval(interval);
         interval = undefined;
       }
     });
+    if (AppState.currentState === 'active') enterActiveState();
+
     return () => { if (interval) clearInterval(interval); appState.remove(); };
-  }, [resolveExpiry, timer.state]);
+  }, [reloadPersistedTimer, resolveExpiry, timer.state]);
 
   if (!['ready', 'running', 'paused'].includes(timer.state)) return null;
   return <RestTimerPanel timer={timer} nowMs={nowMs} nextSetNumber={nextSetNumber} actionBusy={actionBusy} onAction={onAction} />;

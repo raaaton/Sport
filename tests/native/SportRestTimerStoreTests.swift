@@ -115,10 +115,11 @@ private struct SportRestTimerStoreTests {
     try zeroSecondResumeFinishesWithoutRestarting()
     try skipEndsRunningAndPausedTimers()
     try missingTimerDoesNotChangeAnotherRow()
+    try malformedPausedTimeIsRejectedWithoutMutation()
     try terminalTimerIsUnchanged()
     try pauseAtTheDeadlineFinishesTheTimer()
     try databaseOpenDoesNotCreateAMissingFile()
-    print("SportRestTimerStore: 9 cases passed")
+    print("SportRestTimerStore: 10 cases passed")
   }
 
   private static func pausesRunningTimerAndRoundsRemainingSecondsUp() throws {
@@ -175,6 +176,20 @@ private struct SportRestTimerStoreTests {
     try expect(snapshot == nil, "A missing activity timer should be reported without selecting another row")
     let otherState = try state(at: url, id: "other-timer")
     try expect(otherState == "running", "A missing ID must not mutate another row")
+  }
+
+  private static func malformedPausedTimeIsRejectedWithoutMutation() throws {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let url = try makeDatabase(rows: [pausedRow(remaining: 181, startedAt: now.addingTimeInterval(-20))])
+    do {
+      _ = try SportRestTimerStore.apply(databaseURL: url, restTimerID: "timer-1", action: .resume, now: now)
+      throw TestFailure.assertion("A paused time above the timer duration must be rejected")
+    } catch is TestFailure {
+      throw TestFailure.assertion("A malformed paused row must be rejected")
+    } catch {
+      let persistedState = try state(at: url, id: "timer-1")
+      try expect(persistedState == "paused", "A malformed row must remain unchanged after rollback")
+    }
   }
 
   private static func terminalTimerIsUnchanged() throws {

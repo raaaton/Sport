@@ -48,7 +48,7 @@ jobs:
       - name: Install and generate iOS project
         run: |
           npm ci
-          grep -Fq 'SportRestLockScreen(propsJSON: context.state.props)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'Text(timerInterval: now...max(now, endDate), pauseTime: pauseTime' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'Image(systemName: "timer")' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'Text("Rest")' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift

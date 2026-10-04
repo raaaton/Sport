@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { remainingSeconds } from '../src/features/workout/domain/restTimerMachine.ts';
 import { reconcileRestLiveActivity, snapshotFromRestTimer } from '../src/features/workout/domain/restLiveActivityLifecycle.ts';
+
+const restTimerControllerSource = readFileSync(new URL('../src/features/workout/components/RestTimerController.tsx', import.meta.url), 'utf8');
 
 class FakeActivity {
   constructor(id, props = null) { this.id = id; this.props = props; this.updates = 0; this.ends = 0; }
@@ -131,4 +134,22 @@ test('remaining time is derived from the persisted deadline, not a ticking count
   assert.equal(remainingSeconds(running, Date.parse('2026-10-03T10:01:32.000Z')), 88);
   assert.equal(remainingSeconds(running, Date.parse('2026-10-03T10:03:00.000Z')), 0);
   assert.equal(remainingSeconds(timer('paused', { pausedRemainingSeconds: 42 }), Date.parse('2026-10-03T10:03:00.000Z')), 42);
+});
+
+test('returning active reloads the matching persisted rest even when the local timer was paused', () => {
+  const listenerStart = restTimerControllerSource.indexOf("AppState.addEventListener('change'");
+  assert.notEqual(listenerStart, -1, 'the rest timer controller owns one AppState listener');
+  const listenerEnd = restTimerControllerSource.indexOf('return () =>', listenerStart);
+  const activeListener = restTimerControllerSource.slice(listenerStart, listenerEnd);
+  const activeStateHandlerStart = restTimerControllerSource.indexOf('const enterActiveState = () => {');
+  const activeStateHandlerEnd = restTimerControllerSource.indexOf('const appState =', activeStateHandlerStart);
+  const activeStateHandler = restTimerControllerSource.slice(activeStateHandlerStart, activeStateHandlerEnd);
+
+  assert.equal((restTimerControllerSource.match(/AppState\.addEventListener\('change'/g) ?? []).length, 1);
+  assert.match(restTimerControllerSource, /if \(!\['ready', 'running', 'paused'\]\.includes\(timer\.state\)\) return/);
+  assert.match(activeListener, /state === 'active'[\s\S]*enterActiveState\(\)/);
+  assert.match(activeStateHandler, /reloadPersistedTimer\(\)/);
+  assert.match(restTimerControllerSource, /getRestTimerAfterSet\(\s*await getDatabase\(\),\s*timer\.workoutExerciseId,\s*timer\.afterSetNumber,\s*\)/);
+  assert.match(restTimerControllerSource, /persisted\?\.id !== timer\.id/);
+  assert.match(activeStateHandler, /timer\.state === 'running'[\s\S]*setInterval/);
 });
