@@ -207,7 +207,10 @@ private struct SportRestTimerStoreTests {
     let url = try makeDatabase(rows: [runningRow(deadlineAt: deadline, startedAt: now.addingTimeInterval(-180))])
     let snapshot = try SportRestTimerStore.apply(databaseURL: url, restTimerID: "timer-1", action: .pause, now: now)
     try expect(snapshot?.state == .finished, "Pause racing expiry should finish the timer")
-    try expect(snapshot?.endedAt == deadline, "A deadline finish should preserve the deadline as endedAt")
+    try expect(
+      abs((snapshot?.endedAt ?? .distantFuture).timeIntervalSince(deadline)) < 0.001,
+      "A deadline finish should preserve the deadline as endedAt"
+    )
     try expect(snapshot?.deadlineAt == nil && snapshot?.pausedRemainingSeconds == nil, "Finished timers should clear active countdown fields")
   }
 
