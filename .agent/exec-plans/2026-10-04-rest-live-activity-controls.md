@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-04-rest-live-activity-design.md`
 
-**Status:** In progress (user approved inline execution).
+**Status:** Implementation and automated verification complete; physical iPhone validation remains pending.
 
 ## Global Constraints
 
@@ -121,7 +121,7 @@ Repair the clipped and inconsistent rest Live Activity, add native Pause/Resume 
 
   Open the supplied database URL read/write without `SQLITE_OPEN_CREATE`, set a 5-second SQLite busy timeout, start `BEGIN IMMEDIATE`, select only `restTimerID`, and apply the exact pause/resume/tick/skip state rules from `transitionRestTimer`. Write the row and commit before returning; roll back and throw on open, query, update, or commit errors. Do not create tables or run migrations.
 
-- [ ] **Step 4: Run the native store cases**
+- [x] **Step 4: Run the native store cases**
 
   Run `swiftc modules/sport-live-activity/SportRestTimerStore.swift tests/native/SportRestTimerStoreTests.swift -lsqlite3 -o /tmp/SportRestTimerStoreTests` followed by `/tmp/SportRestTimerStoreTests`; expect all state and transaction assertions to pass.
 
@@ -199,7 +199,7 @@ Repair the clipped and inconsistent rest Live Activity, add native Pause/Resume 
 
   Record the timer-like margins/clock, iOS 17+ actions, Stop-as-skip behavior, and SQLite source of truth in `docs/DESIGN.md`. Mark completed tasks and findings here; do not change unrelated product docs.
 
-- [ ] **Step 4: Run project verification**
+- [x] **Step 4: Run project verification**
 
   Run `npx tsc --noEmit`, `npm run lint`, `npm test`, `npx expo install --check`, `npx expo export --platform ios`, the native store executable, and `git diff --check`. Report any network or runner limitation precisely.
 
@@ -207,7 +207,7 @@ Repair the clipped and inconsistent rest Live Activity, add native Pause/Resume 
 
   Record that the physical iPhone checklist remains pending unless it is actually performed.
 
-- [ ] **Step 6: Commit Task 4, push, and inspect CI**
+- [x] **Step 6: Commit Task 4, push, and inspect CI**
 
   Commit the foreground sync, design update, CI verification, and final plan status. Push the implementation commits after automated checks pass, then inspect the GitHub Actions build and unsigned IPA job to green.
 
@@ -224,8 +224,10 @@ Repair the clipped and inconsistent rest Live Activity, add native Pause/Resume 
 - [x] Confirmed the current app already owns canonical persisted pause/resume/skip transitions and the foreground controller lacks a paused-state reload path.
 - [x] Confirmed Expo's notification-only Live Activity interaction is insufficient for a suspended app; the custom intent must write the app's existing SQLite database.
 - [x] Task 1: Stable native layout (`1c52287`; focused generated-output test passes after confirmed failure).
-- [ ] Task 2: Transactional native timer store (`88c4bd8`; native executable awaits macOS CI because local `swiftc` is absent).
-- [x] Task 3: Live Activity intent and controls (`656e20f`; generated-source tests pass; Xcode compile remains for macOS CI).
-- [ ] Task 4: Foreground reconciliation, verification, and delivery (TypeScript/Node/Expo export pass; awaiting macOS Swift/Xcode CI and physical iPhone testing).
+- [x] Task 2: Transactional native timer store (`88c4bd8`; native executable passed on macOS CI; local host has no `swiftc`).
+- [x] Task 3: Live Activity intent and controls (`656e20f`; generated-source tests and macOS Xcode/IPA workflow pass).
+- [x] Task 4: Foreground reconciliation, verification, and delivery (`1b078ca`; local project checks and macOS CI pass; physical iPhone testing remains pending).
 
 **Verification record (2026-10-04):** `npx tsc --noEmit`, `npm test` (9 test files passed), `npm run lint` (0 errors; one existing warning in the untracked `.agents/` skill), `CI=1 npx expo export --platform ios`, and `git diff --check` passed. `npx expo install --check` exited successfully using Expo's bundled local version map because networking is disabled; it reported the dependency check as unreliable in offline mode. The native Swift executable and unsigned iOS target still require the macOS workflow because this host has no `swiftc`/`xcodebuild`. No physical iPhone is connected, so rendering and button interaction remain unverified on-device.
+
+**Final CI result:** The first macOS run (`37164181687`, commit `1b078ca`) caught an overly strict exact `Date` equality in the fractional-deadline test, after Swift compilation succeeded. The assertion now uses a 1 ms tolerance for the ISO-8601/SQLite round trip (`75437ba`). The rerun passed the native SQLite cases, generated iOS project checks, Xcode build, and unsigned IPA packaging: [Build iOS IPA run 37186586892](https://github.com/raaaton/Sport/actions/runs/37186586892), commit `75437ba157d964320079642c338592be8f546bbb`. The physical iPhone checklist above remains pending.
