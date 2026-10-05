@@ -16,12 +16,27 @@ if (!source.includes('import UIKit')) {
   if (!source.includes('import SwiftUI')) throw new Error('Could not locate SwiftUI import in expo-widgets activity renderer.');
   source = source.replace('import SwiftUI', 'import SwiftUI\nimport UIKit');
 }
+const availabilityDeclarations = [
+  'public struct WidgetLiveActivity: Widget',
+  'private struct LiveActivitySectionView: View',
+  'private struct LiveActivityBannerView: View',
+];
+for (const declaration of availabilityDeclarations) {
+  const previous = `@available(iOS 16.1, *)\n${declaration}`;
+  const current = `@available(iOS 26.0, *)\n${declaration}`;
+  if (source.includes(previous)) source = source.replace(previous, current);
+  if (!source.includes(current)) {
+    throw new Error(`Could not set the ${declaration} availability to iOS 26.`);
+  }
+}
 const sectionBefore = `    if let node = nodes[sectionName] as? [String: Any] {
       WidgetsDynamicView(name: context.activityID, kind: .liveActivity, node: node)
     } else {
       EmptyView()
     }`;
 const sectionAfter = `    if context.state.name == "SportRestActivity" {
+      SportRestIslandSection(propsJSON: context.state.props, sectionName: sectionName, activityID: context.activityID)
+    } else if context.state.name == "SportRestCompletionActivity" {
       SportRestIslandSection(propsJSON: context.state.props, sectionName: sectionName, activityID: context.activityID)
     } else if let node = nodes[sectionName] as? [String: Any] {
       WidgetsDynamicView(name: context.activityID, kind: .liveActivity, node: node)
@@ -36,6 +51,8 @@ const bannerBefore = `    if #available(iOS 18.0, *) {
       EmptyView()
     }`;
 const bannerAfter = `    if context.state.name == "SportRestActivity" {
+      SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)
+    } else if context.state.name == "SportRestCompletionActivity" {
       SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)
     } else if #available(iOS 18.0, *) {
       LiveActivityBanner(context: context, nodes: nodes)
@@ -60,6 +77,29 @@ if (!source.includes('SportRestIslandSection(propsJSON: context.state.props')) {
     throw new Error('Could not locate the expected expo-widgets live activity rendering branches.');
   }
   source = source.replace(sectionBefore, sectionAfter).replace(bannerBefore, bannerAfter);
+}
+const mainIslandBranch = `if context.state.name == "SportRestActivity" {
+      SportRestIslandSection(propsJSON: context.state.props, sectionName: sectionName, activityID: context.activityID)
+    }`;
+const completionIslandBranch = `else if context.state.name == "SportRestCompletionActivity" {
+      SportRestIslandSection(propsJSON: context.state.props, sectionName: sectionName, activityID: context.activityID)
+    }`;
+if (!source.includes('context.state.name == "SportRestCompletionActivity"') && source.includes(mainIslandBranch)) {
+  source = source.replace(mainIslandBranch, `${mainIslandBranch} ${completionIslandBranch}`);
+}
+const mainBannerBranch = `if context.state.name == "SportRestActivity" {
+      SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)
+    }`;
+const completionBannerBranch = `else if context.state.name == "SportRestCompletionActivity" {
+      SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)
+    }`;
+if (!source.includes('SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)\n    } else if context.state.name == "SportRestCompletionActivity"')) {
+  if (source.includes(mainBannerBranch)) {
+    source = source.replace(mainBannerBranch, `${mainBannerBranch} ${completionBannerBranch}`);
+  }
+}
+if (!source.includes(completionIslandBranch) || !source.includes(completionBannerBranch)) {
+  throw new Error('Could not add the scheduled rest-completion presentation to both Live Activity surfaces.');
 }
 source = source
   .replace(
@@ -86,10 +126,23 @@ if (source.includes(bannerContentWithSportTint)) {
   throw new Error('Could not locate the expected Lock Screen banner modifiers in expo-widgets.');
 }
 
+source = source.replace(/\.contentMargins\(\.all,\s*\d+,\s*for:\s*\.expanded\)/g, '.contentMargins(.all, 12, for: .expanded)');
 if (!source.includes('.keylineTint(SportActivityStyle.islandKeyline)')) {
   source = source
-    .replace('return island.widgetURL(url)', 'return island.widgetURL(url).keylineTint(SportActivityStyle.islandKeyline)')
-    .replace('return island\n', 'return island.keylineTint(SportActivityStyle.islandKeyline)\n');
+    .replace('return island.widgetURL(url)', 'return island.widgetURL(url).keylineTint(SportActivityStyle.islandKeyline).contentMargins(.all, 12, for: .expanded)')
+    .replace('return island\n', 'return island.keylineTint(SportActivityStyle.islandKeyline).contentMargins(.all, 12, for: .expanded)\n');
+}
+if (!source.includes('return island.widgetURL(url).keylineTint(SportActivityStyle.islandKeyline).contentMargins(.all, 12, for: .expanded)')) {
+  source = source.replace(
+    'return island.widgetURL(url).keylineTint(SportActivityStyle.islandKeyline)',
+    'return island.widgetURL(url).keylineTint(SportActivityStyle.islandKeyline).contentMargins(.all, 12, for: .expanded)',
+  );
+}
+if (!source.includes('return island.keylineTint(SportActivityStyle.islandKeyline).contentMargins(.all, 12, for: .expanded)')) {
+  source = source.replace(
+    'return island.keylineTint(SportActivityStyle.islandKeyline)',
+    'return island.keylineTint(SportActivityStyle.islandKeyline).contentMargins(.all, 12, for: .expanded)',
+  );
 }
 
 if (!source.includes('var island = DynamicIsland {')) {
@@ -108,9 +161,9 @@ const legacyCompactIslandMargins = `      if #available(iOS 17.0, *) {
       }
 `;
 const islandReturns = `      if let url = context.attributes.url.flatMap(URL.init(string:)) {
-        return island.widgetURL(url).keylineTint(SportActivityStyle.islandKeyline)
+        return island.widgetURL(url).keylineTint(SportActivityStyle.islandKeyline).contentMargins(.all, 12, for: .expanded)
       }
-      return island.keylineTint(SportActivityStyle.islandKeyline)`;
+      return island.keylineTint(SportActivityStyle.islandKeyline).contentMargins(.all, 12, for: .expanded)`;
 source = source.replace(legacyCompactIslandMargins, '');
 if (!source.includes(islandReturns)) {
   throw new Error('Could not locate the Dynamic Island return branches to set the Sport keyline.');
@@ -172,8 +225,18 @@ private struct SportRestProps: Decodable {
     case "paused":
       guard let pausedRemainingSeconds else { return false }
       return pausedRemainingSeconds.isFinite && pausedRemainingSeconds >= 0
+    case "finished":
+      return true
     default:
       return false
+    }
+  }
+
+  var statusLabel: String {
+    switch state {
+    case "running": "REST"
+    case "paused": "PAUSE"
+    default: "Repos terminé"
     }
   }
 
@@ -208,7 +271,7 @@ private struct SportRestClock: View {
   }
 }
 
-@available(iOS 16.1, *)
+@available(iOS 26.0, *)
 private struct SportRestIslandSection: View {
   let propsJSON: String
   let sectionName: String
@@ -218,32 +281,30 @@ private struct SportRestIslandSection: View {
     if let props = SportRestProps.decode(propsJSON), props.isRenderable {
       switch sectionName {
       case "compactLeading":
-        HStack(spacing: 4) {
-          Image(systemName: "timer")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(SportActivityStyle.islandKeyline)
-          Text("Rest")
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(.white)
-        }
+        Image(systemName: props.state == "finished" ? "checkmark" : "timer")
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(SportActivityStyle.islandKeyline)
       case "compactTrailing":
-        SportRestClock(props: props, size: 14).foregroundStyle(.white)
+        if props.state == "finished" { EmptyView() }
+        else { SportRestClock(props: props, size: 14).foregroundStyle(.white) }
       case "minimal":
-        SportRestClock(props: props, size: 12).foregroundStyle(.white)
+        if props.state == "finished" { Image(systemName: "checkmark").foregroundStyle(SportActivityStyle.islandKeyline) }
+        else { SportRestClock(props: props, size: 12).foregroundStyle(.white) }
       case "expandedLeading":
         VStack(alignment: .leading, spacing: 4) {
-          HStack(spacing: 5) {
-            Image(systemName: "timer").foregroundStyle(SportActivityStyle.islandKeyline)
-            Text("Rest").foregroundStyle(.white)
-          }.font(.subheadline.weight(.semibold))
+          Text(props.statusLabel).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
           Text(props.exerciseName).font(.caption).lineLimit(1).foregroundStyle(.white.opacity(0.84))
-          Text("Prochaine · \\(props.nextSetNumber)/\\(props.targetSets)")
-            .font(.caption).lineLimit(1).foregroundStyle(.white.opacity(0.72))
+          if props.state != "finished" {
+            Text("Prochaine · \\(props.nextSetNumber)/\\(props.targetSets)")
+              .font(.caption).lineLimit(1).foregroundStyle(.white.opacity(0.72))
+          }
         }
       case "expandedTrailing":
-        SportRestClock(props: props, size: 22).foregroundStyle(.white)
+        if props.state == "finished" { EmptyView() }
+        else { SportRestClock(props: props, size: 22).foregroundStyle(.white) }
       case "expandedBottom":
-        SportRestControls(props: props, activityID: activityID)
+        if props.state == "finished" { EmptyView() }
+        else { SportRestControls(props: props, activityID: activityID) }
       default:
         EmptyView()
       }
@@ -253,7 +314,7 @@ private struct SportRestIslandSection: View {
   }
 }
 
-@available(iOS 16.1, *)
+@available(iOS 26.0, *)
 private struct SportRestLockScreen: View {
   let propsJSON: String
   let activityID: String
@@ -263,20 +324,26 @@ private struct SportRestLockScreen: View {
       VStack(alignment: .leading, spacing: 14) {
         HStack(alignment: .center, spacing: 16) {
           VStack(alignment: .leading, spacing: 4) {
-            Label("Rest", systemImage: "timer")
+            Text(props.statusLabel)
               .font(.headline.weight(.semibold))
-              .labelStyle(SportRestLockScreenLabelStyle())
             Text(props.exerciseName).font(.subheadline.weight(.medium)).lineLimit(1)
-            Text("Prochaine série · \\(props.nextSetNumber)/\\(props.targetSets)")
-              .font(.subheadline).foregroundStyle(SportActivityStyle.lockScreenSecondaryForeground).lineLimit(1)
+            if props.state != "finished" {
+              Text("Prochaine série · \\(props.nextSetNumber)/\\(props.targetSets)")
+                .font(.subheadline).foregroundStyle(SportActivityStyle.lockScreenSecondaryForeground).lineLimit(1)
+            }
           }
-          Spacer(minLength: 8)
-          SportRestClock(props: props, size: 30)
+          if props.state != "finished" {
+            Spacer(minLength: 8)
+            SportRestClock(props: props, size: 30)
+          }
         }
-        SportRestControls(props: props, activityID: activityID)
+        if props.state != "finished" {
+          SportRestControls(props: props, activityID: activityID)
+        }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(.vertical, 2)
+      .padding(.horizontal, 16)
+      .padding(.vertical, 12)
       .foregroundStyle(SportActivityStyle.lockScreenForeground)
     } else {
       EmptyView()
@@ -284,48 +351,26 @@ private struct SportRestLockScreen: View {
   }
 }
 
-@available(iOS 16.1, *)
-private struct SportRestLockScreenLabelStyle: LabelStyle {
-  func makeBody(configuration: Configuration) -> some View {
-    HStack(spacing: 5) {
-      configuration.icon.foregroundStyle(SportActivityStyle.islandKeyline)
-      configuration.title.foregroundStyle(SportActivityStyle.lockScreenForeground)
-    }
-  }
-}
-
-@available(iOS 16.1, *)
+@available(iOS 26.0, *)
 private struct SportRestControls: View {
   let props: SportRestProps
   let activityID: String
 
   var body: some View {
-    if #available(iOS 17.0, *) {
-      HStack(spacing: 10) {
-        Button(intent: SportRestTimerActionIntent(
-          activityID: activityID,
-          restTimerID: props.restTimerId,
-          action: props.state == "paused" ? "resume" : "pause"
-        )) {
-          Label(props.state == "paused" ? "Reprendre" : "Pause", systemImage: props.state == "paused" ? "play.fill" : "pause.fill")
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(SportActivityStyle.islandKeyline)
-
-        Button(intent: SportRestTimerActionIntent(
-          activityID: activityID,
-          restTimerID: props.restTimerId,
-          action: "skip"
-        )) {
-          Label("Stop", systemImage: "stop.fill")
-        }
-        .buttonStyle(.bordered)
-        .tint(SportActivityStyle.islandKeyline)
-      }
-      .controlSize(.small)
-    } else {
-      EmptyView()
+    Button(intent: SportRestTimerActionIntent(
+      activityID: activityID,
+      restTimerID: props.restTimerId,
+      action: props.state == "paused" ? "resume" : "pause"
+    )) {
+      Label(props.state == "paused" ? "Reprendre" : "Pause", systemImage: props.state == "paused" ? "play.fill" : "pause.fill")
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .contentShape(Rectangle())
     }
+    .buttonStyle(.borderedProminent)
+    .tint(SportActivityStyle.islandKeyline)
+    .controlSize(.regular)
+    .frame(maxWidth: .infinity, minHeight: 44)
+    .accessibilityLabel(props.state == "paused" ? "Reprendre le repos" : "Pause du repos")
   }
 }
 // SPORT_REST_LIVE_ACTIVITY_NATIVE_VIEWS_END
@@ -352,15 +397,24 @@ if (existingNativeViewsStart !== -1 && existingNativeViewsEnd !== -1) {
 
 if (!source.includes('SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)') ||
     !source.includes('SportRestIslandSection(propsJSON: context.state.props, sectionName: sectionName, activityID: context.activityID)') ||
+    !source.includes('context.state.name == "SportRestCompletionActivity"') ||
+    !source.includes('@available(iOS 26.0, *)\npublic struct WidgetLiveActivity: Widget') ||
+    !source.includes('@available(iOS 26.0, *)\nprivate struct LiveActivitySectionView: View') ||
+    !source.includes('@available(iOS 26.0, *)\nprivate struct LiveActivityBannerView: View') ||
+    !source.includes('@available(iOS 26.0, *)\nprivate struct SportRestControls: View') ||
     !source.includes('SportRestControls(props: props, activityID: activityID)') ||
     !source.includes('SportRestTimerActionIntent(') ||
-    !source.includes('action: "skip"') ||
     !source.includes('props.state == "paused" ? "resume" : "pause"') ||
     !source.includes('Text(timerInterval: now...max(now, endDate), pauseTime: pauseTime') ||
-    !source.includes('Image(systemName: "timer")') ||
-    !source.includes('Text("Rest")') ||
+    !source.includes('Image(systemName: props.state == "finished" ? "checkmark" : "timer")') ||
     source.includes('.contentMargins(.horizontal, 2, for: .compactLeading)') ||
-    source.includes('Text(props.state == "paused" ? "PAUSE" : "REST")') ||
+    !source.includes('Text(props.statusLabel)') ||
+    !source.includes('case "finished":') ||
+    !source.includes('default: "Repos terminé"') ||
+    !source.includes('.padding(.horizontal, 16)') ||
+    !source.includes('.padding(.vertical, 12)') ||
+    !source.includes('minHeight: 44') ||
+    source.includes('action: "skip"') ||
     source.includes('Text("R")') ||
     !source.includes('lockScreenForeground') ||
     !source.includes('props.isRenderable') ||

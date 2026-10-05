@@ -48,12 +48,19 @@ jobs:
       - name: Install and generate iOS project
         run: |
           npm ci
+          test "$(node -p 'require("./app.json").expo.ios.deploymentTarget')" = "26.0"
+          grep -Fq ":ios => '26.0'" node_modules/expo-widgets/ios/ExpoWidgets.podspec
+          node --experimental-strip-types tests/live-activity-native-patch.test.mjs
           grep -Fq 'SportRestLockScreen(propsJSON: context.state.props, activityID: context.activityID)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'Text(timerInterval: now...max(now, endDate), pauseTime: pauseTime' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
-          grep -Fq 'Image(systemName: "timer")' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
-          grep -Fq 'Text("Rest")' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'Image(systemName: props.state == "finished" ? "checkmark" : "timer")' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'Text(props.statusLabel)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq 'default: "Repos terminé"' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'SportRestClock(props: props, size: 14)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'SportRestClock(props: props, size: 12)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq '.contentMargins(.all, 12, for: .expanded)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq '.padding(.horizontal, 16)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          grep -Fq '.padding(.vertical, 12)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'lockScreenForeground' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           if grep -Eq '\.contentMargins\(\.horizontal, *2, *for: *\.compact(Leading|Trailing)\)|Text\(props\.state == "paused" \? "PAUSE" : "REST"\)|Text\("R"\)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift; then
             echo "::error::The Sport Live Activity regressed to clipped margins or a state-specific label."
@@ -65,13 +72,23 @@ jobs:
           fi
           grep -Fq '.keylineTint(SportActivityStyle.islandKeyline)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
           grep -Fq 'SportRestControls(props: props, activityID: activityID)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
-          grep -Fq 'action: "skip"' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift
+          test "$(grep -Fc 'Button(intent:' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift)" -eq 1
+          if grep -Eq 'action: "skip"|Text\("Stop"\)' node_modules/expo-widgets/ios/Widgets/WidgetLiveActivity.swift; then
+            echo "::error::The Live Activity must expose only its Pause/Resume control."
+            exit 1
+          fi
           grep -Fq 'struct SportRestTimerActionIntent: LiveActivityIntent' node_modules/expo-widgets/ios/Widgets/AppIntent.swift
           grep -Fq 'Activity<LiveActivityAttributes>.activities' node_modules/expo-widgets/ios/Widgets/AppIntent.swift
           grep -Fq 'SportRestTimerStore.apply(' node_modules/expo-widgets/ios/Widgets/AppIntent.swift
+          grep -Fq 'SportRestActivityScheduler.synchronize(' node_modules/expo-widgets/ios/Widgets/AppIntent.swift
+          grep -Fq 'SportRestCompletionActivity' node_modules/expo-widgets/ios/Widgets/AppIntent.swift
+          grep -Fq 'Activity<LiveActivityAttributes>.request(' node_modules/expo-widgets/ios/Widgets/AppIntent.swift
           swiftc modules/sport-live-activity/SportRestTimerStore.swift tests/native/SportRestTimerStoreTests.swift -lsqlite3 -o "$RUNNER_TEMP/SportRestTimerStoreTests"
           "$RUNNER_TEMP/SportRestTimerStoreTests"
           npx expo prebuild --platform ios --no-install
+          grep -Fq 'IPHONEOS_DEPLOYMENT_TARGET = 26.0;' ios/Sport.xcodeproj/project.pbxproj
+          WIDGET_DEPLOYMENT_TARGET="$(xcodebuild -project ios/Sport.xcodeproj -target ExpoWidgetsTarget -showBuildSettings | sed -nE 's/^[[:space:]]*IPHONEOS_DEPLOYMENT_TARGET = ([0-9.]+)$/\1/p' | sort -u)"
+          test "$WIDGET_DEPLOYMENT_TARGET" = "26.0"
 
       - name: Verify generated Live Activity target and install Pods
         shell: bash
@@ -92,6 +109,7 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Print :NSSupportsLiveActivitiesFrequentUpdates' "$INFO_PLIST" | grep -qx false
           /usr/libexec/PlistBuddy -c 'Print :ExpoWidgets_EnablePushNotifications' "$INFO_PLIST" | grep -qx false
           grep -q 'PBXNativeTarget "ExpoWidgetsTarget"' ios/Sport.xcodeproj/project.pbxproj
+          grep -Fq 'IPHONEOS_DEPLOYMENT_TARGET = 26.0;' ios/Sport.xcodeproj/project.pbxproj
           grep -q 'PRODUCT_BUNDLE_IDENTIFIER = "com.raaaton.sport.ExpoWidgetsTarget"' ios/Sport.xcodeproj/project.pbxproj
           test -s ios/ExpoWidgetsTarget/ExpoWidgetsTarget.entitlements
           /usr/libexec/PlistBuddy -c 'Print :com.apple.security.application-groups:0' ios/ExpoWidgetsTarget/ExpoWidgetsTarget.entitlements | grep -qx 'group.com.raaaton.sport'

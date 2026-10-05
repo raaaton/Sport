@@ -2,7 +2,7 @@ import ActivityKit
 import AppIntents
 import Foundation
 
-@available(iOS 16.4, *)
+@available(iOS 26.0, *)
 struct SportRestTimerActionIntent: LiveActivityIntent {
   static var title: LocalizedStringResource = "Rest timer action"
   static var isDiscoverable = false
@@ -47,11 +47,17 @@ struct SportRestTimerActionIntent: LiveActivityIntent {
       restTimerID: restTimerID,
       action: requestedAction
     ) else {
+      await SportRestActivityScheduler.cancelCompletionActivities(restTimerID: restTimerID)
       await activity.end(activity.content, dismissalPolicy: .immediate)
       return .result()
     }
 
     guard snapshot.state == .running || snapshot.state == .paused else {
+      if snapshot.state == .finished {
+        await SportRestActivityScheduler.ensureCompletion(propsJSON: activity.content.state.props, url: activity.attributes.url)
+      } else {
+        await SportRestActivityScheduler.cancelCompletionActivities(restTimerID: restTimerID)
+      }
       await activity.end(activity.content, dismissalPolicy: .immediate)
       return .result()
     }
@@ -75,6 +81,13 @@ struct SportRestTimerActionIntent: LiveActivityIntent {
     guard let updatedProps = String(data: updatedPropsData, encoding: .utf8) else {
       throw SportRestTimerActionError.invalidActivityState
     }
+
+    await SportRestActivityScheduler.synchronize(
+      activityName: activity.content.state.name,
+      propsJSON: updatedProps,
+      url: activity.attributes.url,
+      staleDate: snapshot.deadlineAt
+    )
 
     var updatedState = activity.content.state
     updatedState.props = updatedProps

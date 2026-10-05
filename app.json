@@ -8,6 +8,7 @@
     "scheme": "sport",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "deploymentTarget": "26.0",
       "supportsTablet": true,
       "bundleIdentifier": "com.raaaton.sport",
       "infoPlist": {

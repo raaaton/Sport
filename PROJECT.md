@@ -109,7 +109,7 @@ When the timer ends:
 
 The user must be able to modify the default rest duration.
 
-The running timer is derived from a persisted absolute deadline; pause stores the remaining duration and resume establishes a new deadline. On supported iOS versions, a rest may also appear as one Live Activity on the Lock Screen and Dynamic Island. That presentation reads the workout's current exercise/set and timer state; it does not own a second timer. It is local-only and uses no Live Activity push notifications or server.
+The running timer is derived from a persisted absolute deadline; pause stores the remaining duration and resume establishes a new deadline. On iOS 26 or later, a rest appears as coordinated Live Activities on the Lock Screen and Dynamic Island: one shows the live countdown, and a second is scheduled locally to announce completion at the saved deadline. Both read the workout's persisted state; neither owns a second timer. This is local-only and uses no Live Activity push notifications or server.
 
 ## 8. Added weight
 
@@ -202,7 +202,7 @@ Expose useful actions through App Intents where practical.
 
 ### Live Activities
 
-The current rest timer provides one Live Activity for the active workout rest. It shows the exercise, next set, and a system-rendered countdown on the Lock Screen and supported Dynamic Island presentations. Pause is shown as a static paused duration; resume updates the same activity from the new persisted deadline. Skip, expiry, exercise/workout completion, and workout cancellation end the activity. Sport reconciles activities on launch and foregrounding against SQLite. Expo's JavaScript API cannot schedule an ActivityKit end at a deadline while the app process is suspended, so an expired activity is ended when Sport next runs its foreground expiry/reconciliation path. No remote push token, backend, or Live Activity push notification is enabled.
+The rest timer uses a countdown Live Activity and a locally scheduled completion Live Activity on iOS 26 or later. The countdown shows the exercise, next set, and system-rendered timer; Pause and Resume update the persisted timer and reschedule its completion. Skip, pause, and other early endings cancel the pending completion. At the saved deadline, ActivityKit starts the completion activity with an alert configuration so iOS can present the expanded “Repos terminé” state while Sport is suspended. Sport still reconciles the countdown against SQLite on launch and foregrounding. No remote push token, backend, or Live Activity push notification is enabled.
 
 ## 14. Navigation
 
