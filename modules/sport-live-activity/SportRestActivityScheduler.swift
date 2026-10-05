@@ -158,7 +158,12 @@ enum SportRestActivityScheduler {
   }
 
   private static func parseDeadline(in propsJSON: String) -> Date? {
-    guard let rawValue = fields(from: propsJSON)?["restEndsAt"] as? String else { return nil }
+    guard let props = fields(from: propsJSON) else { return nil }
+    return parseDeadline(in: props)
+  }
+
+  private static func parseDeadline(in props: [String: Any]) -> Date? {
+    guard let rawValue = props["restEndsAt"] as? String else { return nil }
     let formatter = ISO8601DateFormatter()
     if let date = formatter.date(from: rawValue) { return date }
     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
