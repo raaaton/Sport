@@ -286,7 +286,12 @@ private struct SportRestIslandSection: View {
           .foregroundStyle(SportActivityStyle.islandKeyline)
       case "compactTrailing":
         if props.state == "finished" { EmptyView() }
-        else { SportRestClock(props: props, size: 14).foregroundStyle(.white) }
+        else {
+          SportRestClock(props: props, size: 14)
+            .foregroundStyle(.white)
+            // Text(timerInterval:) reserves space for its widest value; keep it from stretching the compact Island.
+            .frame(width: 44, alignment: .trailing)
+        }
       case "minimal":
         if props.state == "finished" { Image(systemName: "checkmark").foregroundStyle(SportActivityStyle.islandKeyline) }
         else { SportRestClock(props: props, size: 12).foregroundStyle(.white) }

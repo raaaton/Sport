@@ -95,11 +95,13 @@ async function generatePatchedActivitySources() {
 test('Expo patch generates the compact Timer-like Sport rest presentation', async () => {
   const generated = await generatePatchedWidget();
   const compactLeading = generated.split('case "compactLeading":')[1]?.split('case "compactTrailing":')[0];
+  const compactTrailing = generated.split('case "compactTrailing":')[1]?.split('case "minimal":')[0];
   const expandedLeading = generated.split('case "expandedLeading":')[1]?.split('case "expandedTrailing":')[0];
   const clock = generated.split('private struct SportRestClock: View {')[1]?.split('@available(iOS 16.1, *)\nprivate struct SportRestIslandSection')[0];
   const controls = generated.split('private struct SportRestControls: View {')[1]?.split('// SPORT_REST_LIVE_ACTIVITY_NATIVE_VIEWS_END')[0];
 
   assert.ok(compactLeading, 'generated compact leading region exists');
+  assert.ok(compactTrailing, 'generated compact trailing region exists');
   assert.ok(expandedLeading, 'generated expanded leading region exists');
   assert.ok(clock, 'generated shared rest clock exists');
   assert.ok(controls, 'generated rest controls exist');
@@ -113,6 +115,8 @@ test('Expo patch generates the compact Timer-like Sport rest presentation', asyn
   assert.doesNotMatch(compactLeading, /\.frame\(width:|\.fixedSize\(/);
   assert.match(clock, /Text\(timerInterval:.*pauseTime:/s);
   assert.doesNotMatch(clock, /Text\(props\.pausedTime\)/);
+  assert.match(compactTrailing, /SportRestClock\(props: props, size: 14\)[\s\S]*?\.frame\(width: 44, alignment: \.trailing\)/);
+  assert.doesNotMatch(compactTrailing, /\.frame\(maxWidth: \.infinity/);
   assert.match(generated, /case "compactTrailing":[\s\S]*?SportRestClock\(props: props,/);
   assert.match(generated, /case "minimal":[\s\S]*?SportRestClock\(props: props,/);
   assert.doesNotMatch(generated, /Text\("R"\)/);
